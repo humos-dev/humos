@@ -80,23 +80,86 @@ fn inject_message(
     }
 }
 
-/// Tauri command: return the last 50 raw JSONL lines for a session.
-/// The frontend can pass this to the Claude API for summarization.
+/// Tauri command: summarize a session in plain English using Claude Haiku.
 #[tauri::command]
-fn summarize_session(session_id: String) -> Result<String, String> {
+async fn summarize_session(session_id: String) -> Result<String, String> {
     let projects_dir = claude_projects_dir()
         .ok_or_else(|| "Cannot determine ~/.claude/projects directory".to_string())?;
 
-    // Walk subdirectories to find the matching .jsonl file
     let jsonl_path = find_jsonl(&projects_dir, &session_id)
         .ok_or_else(|| format!("Session file not found for id: {}", session_id))?;
 
     let content = fs::read_to_string(&jsonl_path)
         .map_err(|e| format!("Failed to read session file: {}", e))?;
 
-    let lines: Vec<&str> = content.lines().collect();
-    let last_50: Vec<&str> = lines.iter().rev().take(50).copied().collect::<Vec<_>>().into_iter().rev().collect();
-    Ok(last_50.join("\n"))
+    // Extract the last 50 meaningful lines (user/assistant messages only)
+    let readable: Vec<String> = content
+        .lines()
+        .filter_map(|line| {
+            let obj: serde_json::Value = serde_json::from_str(line.trim()).ok()?;
+            let kind = obj.get("type")?.as_str()?;
+            if kind != "user" && kind != "assistant" {
+                return None;
+            }
+            let msg = obj.get("message")?;
+            let role = msg.get("role")?.as_str()?;
+            let content_arr = msg.get("content")?.as_array()?;
+            let mut parts: Vec<String> = Vec::new();
+            for item in content_arr {
+                let item_type = item.get("type").and_then(|t| t.as_str()).unwrap_or("");
+                match item_type {
+                    "text" => {
+                        if let Some(t) = item.get("text").and_then(|t| t.as_str()) {
+                            let trimmed = t.trim();
+                            if !trimmed.is_empty() {
+                                parts.push(trimmed.chars().take(300).collect());
+                            }
+                        }
+                    }
+                    "tool_use" => {
+                        let name = item.get("name").and_then(|n| n.as_str()).unwrap_or("unknown");
+                        parts.push(format!("[tool: {}]", name));
+                    }
+                    "tool_result" => {
+                        parts.push("[tool result]".to_string());
+                    }
+                    _ => {}
+                }
+            }
+            if parts.is_empty() {
+                return None;
+            }
+            Some(format!("{}: {}", role.to_uppercase(), parts.join(" ")))
+        })
+        .collect();
+
+    let last_50: Vec<&str> = readable.iter().rev().take(50).map(|s| s.as_str()).collect::<Vec<_>>().into_iter().rev().collect();
+    let context = last_50.join("\n");
+
+    if context.is_empty() {
+        return Ok("No activity to summarize yet.".to_string());
+    }
+
+    let prompt = format!(
+        "Here is the recent activity from a Claude CLI session. Summarize in 2 plain English sentences what this session is working on right now. Be specific and concrete — name the actual task, files, or goal. No preamble, no bullet points, just 2 sentences.\n\n---\n{}\n---",
+        context
+    );
+
+    // Use the local `claude` CLI (already authenticated) to generate the summary.
+    let claude_bin = which_claude();
+    let output = tokio::process::Command::new(&claude_bin)
+        .args(["-p", &prompt, "--no-session-persistence"])
+        .output()
+        .await
+        .map_err(|e| format!("Failed to run claude CLI: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("claude CLI error: {}", stderr.trim()));
+    }
+
+    let summary = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    Ok(if summary.is_empty() { "No summary returned.".to_string() } else { summary })
 }
 
 /// Walk the projects directory and find a .jsonl whose stem matches session_id.
@@ -110,6 +173,22 @@ fn find_jsonl(base: &PathBuf, session_id: &str) -> Option<PathBuf> {
         }
     }
     None
+}
+
+/// Find the `claude` CLI binary — checks common install locations.
+fn which_claude() -> String {
+    let candidates = [
+        "/Users/boluwatifeogunbiyi/.local/bin/claude",
+        "/usr/local/bin/claude",
+        "/opt/homebrew/bin/claude",
+        "claude",
+    ];
+    for c in &candidates {
+        if std::path::Path::new(c).exists() || *c == "claude" {
+            return c.to_string();
+        }
+    }
+    "claude".to_string()
 }
 
 /// Returns the ~/.claude/projects path.

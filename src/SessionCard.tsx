@@ -115,18 +115,43 @@ const styles: Record<string, React.CSSProperties> = {
     outline: "none",
     marginTop: "-4px",
   },
-  summaryBox: {
+  summaryOverlay: {
+    position: "absolute",
+    inset: 0,
+    background: "#0d0d0dee",
+    backdropFilter: "blur(2px)",
+    borderRadius: "8px",
+    padding: "16px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "10px",
+    zIndex: 10,
+    overflow: "hidden",
+  },
+  summaryTitle: {
     fontSize: "10px",
     color: "#555",
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+  },
+  summaryText: {
+    fontSize: "12px",
+    color: "#ccc",
     lineHeight: 1.6,
-    background: "#0a0a0a",
-    border: "1px solid #1a1a1a",
-    borderRadius: "4px",
-    padding: "8px 10px",
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
-    maxHeight: "120px",
+    flex: 1,
     overflowY: "auto",
+  },
+  summaryClose: {
+    alignSelf: "flex-end",
+    background: "none",
+    border: "1px solid #2a2a2a",
+    borderRadius: "4px",
+    color: "#555",
+    fontSize: "10px",
+    padding: "4px 10px",
+    cursor: "pointer",
+    fontFamily: "inherit",
+    letterSpacing: "0.04em",
   },
   timestamp: {
     fontSize: "10px",
@@ -172,7 +197,7 @@ export function SessionCard({ session }: Props) {
       });
       setSummary(raw || "(no content)");
     } catch (err) {
-      setSummary("Error loading session data.");
+      setSummary(`Error: ${err}`);
       console.error(err);
     } finally {
       setSummarizing(false);
@@ -184,6 +209,7 @@ export function SessionCard({ session }: Props) {
       style={{
         ...styles.card,
         borderColor: session.status === "running" ? "#1a3a1a" : "#1e1e1e",
+        position: "relative",
       }}
     >
       {/* Header */}
@@ -253,9 +279,15 @@ export function SessionCard({ session }: Props) {
         />
       )}
 
-      {/* Summary box */}
+      {/* Summary overlay — floats over the card, doesn't affect grid layout */}
       {summary !== null && (
-        <div style={styles.summaryBox}>{summary}</div>
+        <div style={styles.summaryOverlay}>
+          <div style={styles.summaryTitle}>Summary</div>
+          <div style={styles.summaryText}>{summary}</div>
+          <button style={styles.summaryClose} onClick={() => setSummary(null)}>
+            Dismiss
+          </button>
+        </div>
       )}
     </div>
   );
