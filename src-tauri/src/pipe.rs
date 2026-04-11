@@ -1,8 +1,14 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use glob::Pattern;
 use serde::{Deserialize, Serialize};
+
+/// Minimum gap between two fires of the same rule. Prevents double-injection
+/// when the file watcher and the periodic rescan both observe the same
+/// transition within a few seconds.
+const RULE_DEBOUNCE: Duration = Duration::from_secs(5);
 
 /// Trigger condition for a pipe rule.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -50,6 +56,13 @@ pub struct PipeManager {
     /// Previous observed state for each session_id. Used to detect the
     /// idle-entry edge (running/waiting → idle) and new file-write events.
     snapshots: HashMap<String, SessionSnapshot>,
+    /// Last time each rule fired, keyed by rule id. Used to debounce
+    /// double-fires from the watcher and periodic rescan racing on the
+    /// same transition.
+    last_fired: HashMap<String, Instant>,
+    /// Cache of compiled glob patterns, keyed by pattern string. Avoids
+    /// recompiling on every evaluation tick.
+    glob_cache: HashMap<String, Pattern>,
 }
 
 /// A pending injection produced when a rule fires.
@@ -72,7 +85,25 @@ impl PipeManager {
         Self {
             rules: Vec::new(),
             snapshots: HashMap::new(),
+            last_fired: HashMap::new(),
+            glob_cache: HashMap::new(),
         }
+    }
+
+    /// Look up or compile a glob pattern. Returns None if the pattern is invalid.
+    fn compiled_glob(&mut self, pattern: &str) -> Option<&Pattern> {
+        if !self.glob_cache.contains_key(pattern) {
+            match Pattern::new(pattern) {
+                Ok(p) => {
+                    self.glob_cache.insert(pattern.to_string(), p);
+                }
+                Err(e) => {
+                    log::warn!("pipe: invalid glob pattern '{}': {}", pattern, e);
+                    return None;
+                }
+            }
+        }
+        self.glob_cache.get(pattern)
     }
 
     /// Add a rule. Returns the rule id on success.
@@ -85,6 +116,7 @@ impl PipeManager {
     /// Remove a rule by id.
     pub fn remove_rule(&mut self, id: &str) {
         self.rules.retain(|r| r.id != id);
+        self.last_fired.remove(id);
     }
 
     /// Evaluate all rules against the current session map and return any
@@ -122,8 +154,14 @@ impl PipeManager {
         }
 
         let mut actions: Vec<PipeAction> = Vec::new();
+        let now = Instant::now();
 
-        for rule in &self.rules {
+        // Clone rules into a local vec so we can take &mut self for the glob cache
+        // without a borrow conflict. Rule count is small (typically <20) so this
+        // is cheap.
+        let rules = self.rules.clone();
+
+        for rule in &rules {
             let source = match find_session(&map, &rule.from_session_id, &rule.from_cwd) {
                 Some(s) => s,
                 None => continue, // source session not known yet
@@ -167,14 +205,30 @@ impl PipeManager {
                     if output_changed
                         && source.last_output.starts_with("Running:")
                     {
-                        matches_glob(pattern, &source.last_output)
+                        let last_output = source.last_output.clone();
+                        self.compiled_glob(pattern)
+                            .map(|p| last_output.split_whitespace().any(|tok| p.matches(tok)))
+                            .unwrap_or(false)
                     } else {
                         false
                     }
                 }
             };
 
+            // Debounce: skip if this rule fired recently, even if the edge
+            // transition genuinely reoccurred. Prevents the watcher and periodic
+            // rescan from both dispatching the same idle transition.
             if fired {
+                if let Some(last) = self.last_fired.get(&rule.id) {
+                    if now.duration_since(*last) < RULE_DEBOUNCE {
+                        log::debug!("pipe: rule {} debounced (fired recently)", rule.id);
+                        continue;
+                    }
+                }
+            }
+
+            if fired {
+                self.last_fired.insert(rule.id.clone(), now);
                 let message = build_message(rule, source);
                 log::info!(
                     "pipe: rule {} fired — injecting into session {} (cwd: {})",
@@ -244,6 +298,10 @@ fn build_message(rule: &PipeRule, source: &crate::SessionState) -> String {
 /// Check whether `text` contains a substring that matches the glob `pattern`.
 /// We test every whitespace-delimited token so "Running: write_file schema.json"
 /// matches the pattern "*.json".
+///
+/// NOTE: production evaluation goes through `PipeManager::compiled_glob` which
+/// caches compiled patterns. This standalone helper exists only for unit tests.
+#[cfg(test)]
 fn matches_glob(pattern: &str, text: &str) -> bool {
     let compiled = match Pattern::new(pattern) {
         Ok(p) => p,

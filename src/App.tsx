@@ -28,6 +28,7 @@ interface PipeRule {
   to_session_id: string;
   from_cwd: string;
   to_cwd: string;
+  trigger: { OnIdle: null } | { OnFileWrite: string };
 }
 
 interface LogEntry {
@@ -78,6 +79,8 @@ function animatePipeLine(
   const duration = 500;
   let rafId = 0;
   let cancelled = false;
+  let timeoutA: ReturnType<typeof setTimeout> | null = null;
+  let timeoutB: ReturnType<typeof setTimeout> | null = null;
 
   function draw(now: number) {
     if (cancelled) return;
@@ -106,10 +109,12 @@ function animatePipeLine(
     } else {
       toEl.style.transition = "box-shadow 0s";
       toEl.style.boxShadow = "0 0 0 1px #3ecf8e";
-      setTimeout(() => {
+      timeoutA = setTimeout(() => {
+        if (cancelled) return;
         toEl.style.transition = "box-shadow 0.6s ease";
         toEl.style.boxShadow = "";
-        setTimeout(() => {
+        timeoutB = setTimeout(() => {
+          if (cancelled) return;
           toEl.style.transition = "";
           c.clearRect(0, 0, canvas.width, canvas.height);
         }, 600);
@@ -121,6 +126,8 @@ function animatePipeLine(
   return () => {
     cancelled = true;
     cancelAnimationFrame(rafId);
+    if (timeoutA !== null) clearTimeout(timeoutA);
+    if (timeoutB !== null) clearTimeout(timeoutB);
   };
 }
 
@@ -350,6 +357,17 @@ export default function App() {
   useEffect(() => {
     loadPipeRules();
   }, [pipeOpen, loadPipeRules]);
+
+  // Clear any pending signal-undo timeout on unmount so we don't fire
+  // invoke() against a torn-down component.
+  useEffect(() => {
+    return () => {
+      if (signalUndoRef.current) {
+        clearTimeout(signalUndoRef.current);
+        signalUndoRef.current = null;
+      }
+    };
+  }, []);
 
   // Close pipe drawer and signal bar with Escape.
   useEffect(() => {

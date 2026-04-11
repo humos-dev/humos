@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.4] - 2026-04-11
+
+### Fixed
+- **pipe double-injection**: `PipeManager` now tracks `last_fired` per rule id and debounces fires within a 5s window. Previously, the file watcher and periodic rescan could both observe the same running→idle transition and each dispatch `inject_message`, causing duplicate messages in the target terminal.
+- **glob recompilation**: compiled `Pattern`s are cached in `PipeManager.glob_cache` keyed by pattern string. The hot `evaluate` loop no longer recompiles the same glob on every tick.
+- **animation timeout leak**: `animatePipeLine` now captures the nested `setTimeout` IDs and clears them in the returned cleanup, so unmounting the canvas mid-animation can't mutate a torn-down DOM node.
+- **signal undo unmount race**: added a cleanup `useEffect` that clears `signalUndoRef` on App unmount, preventing a late `invoke("signal_sessions")` firing against a dead component.
+- **PipeRule type drift (frontend)**: `App.tsx` `PipeRule` interface now includes the `trigger` field so it matches `PipeConfig`'s version exactly (fixes TS2719 nominal-type error).
+
 ## [0.3.3] - 2026-04-11
 
 ### Fixed
