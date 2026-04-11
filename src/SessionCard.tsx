@@ -7,6 +7,8 @@ interface Props {
   session: SessionState;
   isSource?: boolean;
   isTarget?: boolean;
+  signalSuccess?: boolean;
+  signalFail?: boolean;
 }
 
 const STATUS_DOT: Record<SessionStatus, { color: string; label: string }> = {
@@ -151,7 +153,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
 };
 
-export function SessionCard({ session, isSource, isTarget }: Props) {
+export function SessionCard({ session, isSource, isTarget, signalSuccess, signalFail }: Props) {
   const [sendOpen, setSendOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [summary, setSummary] = useState<string | null>(null);
@@ -214,6 +216,8 @@ export function SessionCard({ session, isSource, isTarget }: Props) {
     "session-card",
     isRunning ? "session-card--running" : "",
     sendOpen ? "session-card--send-open" : "",
+    signalSuccess ? "session-card--signal-success" : "",
+    signalFail ? "session-card--signal-fail" : "",
   ].filter(Boolean).join(" ");
 
   return (

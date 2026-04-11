@@ -27,6 +27,93 @@ struct SessionTransitioned {
     to_status: String,
 }
 
+/// Per-session result from a signal broadcast.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct SignalResult {
+    session_id: String,
+    project: String,
+    success: bool,
+    error: Option<String>,
+}
+
+/// Emitted after signal_sessions runs — carries per-session delivery status.
+#[derive(Debug, Clone, Serialize)]
+struct SignalFiredEvent {
+    message: String,
+    success_ids: Vec<String>,
+    fail_ids: Vec<String>,
+    success_count: usize,
+    fail_count: usize,
+}
+
+/// Tauri command: broadcast a message to every non-idle session.
+///
+/// Iterates all sessions where `status != "idle"` (running + waiting), calls
+/// `inject_message` for each, then emits a `signal-fired` event so the UI can
+/// animate and log the result.  Partial failure is handled gracefully — results
+/// for each session are returned regardless of whether injection succeeded.
+#[tauri::command]
+async fn signal_sessions(
+    message: String,
+    state: State<'_, SessionMap>,
+    app: AppHandle,
+) -> Result<Vec<SignalResult>, String> {
+    // Snapshot non-idle sessions while holding the lock, then drop it immediately.
+    let targets: Vec<(String, String, String)> = {
+        let sessions = state.lock().unwrap_or_else(|e| e.into_inner());
+        sessions
+            .values()
+            .filter(|s| s.status != "idle")
+            .map(|s| (s.id.clone(), s.project.clone(), s.cwd.clone()))
+            .collect()
+    };
+
+    let mut results: Vec<SignalResult> = Vec::with_capacity(targets.len());
+
+    for (id, project, cwd) in &targets {
+        let outcome = applescript::inject_message(cwd, &message);
+        results.push(SignalResult {
+            session_id: id.clone(),
+            project: project.clone(),
+            success: outcome.is_ok(),
+            error: outcome.err(),
+        });
+    }
+
+    let success_ids: Vec<String> = results
+        .iter()
+        .filter(|r| r.success)
+        .map(|r| r.session_id.clone())
+        .collect();
+    let fail_ids: Vec<String> = results
+        .iter()
+        .filter(|r| !r.success)
+        .map(|r| r.session_id.clone())
+        .collect();
+
+    let evt = SignalFiredEvent {
+        message: message.clone(),
+        success_count: success_ids.len(),
+        fail_count: fail_ids.len(),
+        success_ids,
+        fail_ids,
+    };
+
+    if let Err(e) = app.emit("signal-fired", &evt) {
+        log::error!("emit signal-fired error: {}", e);
+    }
+
+    log::info!(
+        "signal: broadcast to {} sessions ({} ok, {} failed): {}",
+        targets.len(),
+        evt.success_count,
+        evt.fail_count,
+        &message[..message.len().min(60)]
+    );
+
+    Ok(results)
+}
+
 /// Emitted when a pipe rule fires and a message is about to be injected.
 #[derive(serde::Serialize, Clone)]
 struct PipeFired {
@@ -458,6 +545,7 @@ pub fn run() {
             get_sessions,
             focus_session,
             inject_message,
+            signal_sessions,
             summarize_session,
             add_pipe_rule,
             remove_pipe_rule,

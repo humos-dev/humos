@@ -315,3 +315,90 @@ body {
   font-size: 11px;
   color: #f87171;
 }
+
+/* ── Signal flash animations ─────────────────────────────────── */
+@keyframes signal-success-flash {
+  0%   { box-shadow: 0 0 0 0 rgba(62, 207, 142, 0.7); border-color: #3ecf8e; }
+  40%  { box-shadow: 0 0 0 6px rgba(62, 207, 142, 0.3); border-color: #3ecf8e; }
+  100% { box-shadow: 0 0 0 0 rgba(62, 207, 142, 0); border-color: var(--border); }
+}
+
+@keyframes signal-fail-flash {
+  0%   { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.7); border-color: #f87171; }
+  40%  { box-shadow: 0 0 0 6px rgba(248, 113, 113, 0.3); border-color: #f87171; }
+  100% { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0); border-color: var(--border); }
+}
+
+.session-card--signal-success {
+  animation: signal-success-flash 0.8s ease-out forwards;
+}
+
+.session-card--signal-fail {
+  animation: signal-fail-flash 1s ease-out forwards;
+}
+
+/* ── Signal command bar ──────────────────────────────────────── */
+.signal-command-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
+  background: #0d0d0d;
+  border-bottom: 1px solid var(--border);
+  transition: border-color 0.15s;
+}
+
+.signal-command-bar--error {
+  border-bottom-color: #f87171;
+}
+
+.signal-command-bar__input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--text);
+  caret-color: var(--signal);
+}
+
+.signal-command-bar__input::placeholder {
+  color: #444;
+}
+
+.signal-command-bar__input:read-only {
+  opacity: 0.5;
+}
+
+.signal-command-bar__counter {
+  font-size: 10px;
+  color: #f87171;
+  flex-shrink: 0;
+}
+
+.signal-command-bar__toast {
+  font-size: 11px;
+  color: var(--text-2);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.signal-command-bar__cancel {
+  background: none;
+  border: none;
+  color: var(--signal);
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.signal-command-bar__error-text {
+  font-size: 11px;
+  color: #f87171;
+  flex-shrink: 0;
+  white-space: nowrap;
+}

@@ -1,9 +1,21 @@
 # Changelog
 
+## [0.3.0] - 2026-04-11
+
+### Added
+- **signal()**: broadcast a message to all running+waiting sessions simultaneously with one click
+  - `signal_sessions` Tauri command (Rust): iterates all non-idle sessions, calls `inject_message` for each, emits `signal-fired` event with per-session success/fail split
+  - `⌁ Signal` button in header — disabled (greyed, tooltip) when 0 non-idle sessions
+  - Signal command bar: 40px overlay below header, auto-focused input, 512-char limit with counter at 80% capacity
+  - 2-second undo window: toast shows "Sending to N sessions — Cancel" before inject fires
+  - All-fail error state: inline red error in command bar, input stays open
+  - Session card flash animations: green ripple on successful delivery, red glow on failure (distinct timing from pipe animation)
+  - Activity log entry: `⌁ signal → N sessions: [preview]` with fail count if partial
+
 ## [0.2.1] - 2026-04-11
 
 ### Added
-- `PLAN-signal.md`: fully reviewed plan for `signal()` (Primitive 2) — broadcast a message to all running+waiting sessions simultaneously via AppleScript injection. Passed 4-phase autoplan review (CEO, Design, Eng, DX). 19 decisions logged.
+- `PLAN-signal.md`: fully reviewed plan for `signal()` (Primitive 2). Passed 4-phase autoplan review (CEO, Design, Eng, DX). 19 decisions logged.
 - TODOS.md: 6 new deferred items — signal() v2 selective broadcast, signal vocabulary, programmatic API, file-based signaling, parallel injection (N>15), and humOS runtime model spec
 
 ## [0.2.0] - 2026-04-11

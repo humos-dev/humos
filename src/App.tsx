@@ -5,6 +5,14 @@ import { SessionCard } from "./SessionCard";
 import { PipeConfig } from "./PipeConfig";
 import type { SessionState } from "./types";
 
+interface SignalFiredEvent {
+  message: string;
+  success_ids: string[];
+  fail_ids: string[];
+  success_count: number;
+  fail_count: number;
+}
+
 interface PipeFiredEvent {
   rule_id: string;
   from_session_id: string;
@@ -202,11 +210,19 @@ export default function App() {
   const [pipeOpen, setPipeOpen] = useState(false);
   const [pipeRules, setPipeRules] = useState<PipeRule[]>([]);
   const [log, setLog] = useState<LogEntry[]>(loadStoredLog);
+  const [signalOpen, setSignalOpen] = useState(false);
+  const [signalMessage, setSignalMessage] = useState("");
+  const [signalPending, setSignalPending] = useState(false);
+  const [signalFlashIds, setSignalFlashIds] = useState<Set<string>>(new Set());
+  const [signalFailIds, setSignalFailIds] = useState<Set<string>>(new Set());
+  const [signalError, setSignalError] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   // Monotonic log entry counter — useRef avoids module-level mutable state.
   const logSeqRef = useRef(0);
   // Mirror of sessions for use inside event listener closures without staleness.
   const sessionsRef = useRef<SessionState[]>([]);
+  const signalUndoRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const signalInputRef = useRef<HTMLInputElement>(null);
 
   const loadSessions = useCallback(async () => {
     try {
@@ -325,16 +341,90 @@ export default function App() {
     if (!pipeOpen) loadPipeRules();
   }, [pipeOpen, loadPipeRules]);
 
-  // Close pipe drawer with Escape.
+  // Close pipe drawer and signal bar with Escape.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setPipeOpen(false);
+      if (e.key === "Escape") {
+        setPipeOpen(false);
+        handleSignalCancel();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Listen for signal-fired events — flash cards and log.
+  useEffect(() => {
+    const unlisten = listen<SignalFiredEvent>("signal-fired", (event) => {
+      const { success_ids, fail_ids, message, success_count, fail_count } = event.payload;
+
+      if (success_ids.length > 0) {
+        setSignalFlashIds(new Set(success_ids));
+        setTimeout(() => setSignalFlashIds(new Set()), 800);
+      }
+      if (fail_ids.length > 0) {
+        setSignalFailIds(new Set(fail_ids));
+        setTimeout(() => setSignalFailIds(new Set()), 1000);
+      }
+
+      const preview = message.length > 40 ? message.slice(0, 40) + "..." : message;
+      const failNote = fail_count > 0 ? ` (${fail_count} failed)` : "";
+      setLog((prev) => {
+        const entry: LogEntry = {
+          id: logSeqRef.current++,
+          text: `⌁ signal → ${success_count} sessions: ${preview}${failNote}`,
+          ts: now(),
+        };
+        return [entry, ...prev].slice(0, LOG_MAX);
+      });
+    });
+
+    return () => { unlisten.then((f) => f()); };
+  }, []);
+
+  function handleSignalSubmit() {
+    const msg = signalMessage.trim();
+    if (!msg || signalPending) return;
+
+    setSignalPending(true);
+    setSignalError(null);
+
+    signalUndoRef.current = setTimeout(async () => {
+      try {
+        const results = await invoke<Array<{ session_id: string; project: string; success: boolean; error?: string }>>(
+          "signal_sessions",
+          { message: msg }
+        );
+        const allFailed = results.length > 0 && results.every((r) => !r.success);
+        if (allFailed) {
+          setSignalError("Signal failed — no sessions received it");
+          setSignalPending(false);
+        } else {
+          setSignalMessage("");
+          setSignalOpen(false);
+          setSignalPending(false);
+          setSignalError(null);
+        }
+      } catch (err) {
+        setSignalError(`Signal failed: ${err}`);
+        setSignalPending(false);
+      }
+    }, 2000);
+  }
+
+  function handleSignalCancel() {
+    if (signalUndoRef.current) {
+      clearTimeout(signalUndoRef.current);
+      signalUndoRef.current = null;
+    }
+    setSignalPending(false);
+    setSignalOpen(false);
+    setSignalMessage("");
+    setSignalError(null);
+  }
+
   const runningCount = sessions.filter((s) => s.status === "running").length;
+  const nonIdleCount = sessions.filter((s) => s.status !== "idle").length;
   const isActive = runningCount > 0;
 
   // Pre-compute source/target sets for O(1) card lookups.
@@ -390,8 +480,71 @@ export default function App() {
               </span>
             )}
           </button>
+          <button
+            style={{
+              ...styles.pipeBtn,
+              ...(signalOpen ? styles.pipeBtnActive : {}),
+              ...(nonIdleCount === 0 ? { opacity: 0.35, cursor: "not-allowed" } : {}),
+            }}
+            title={nonIdleCount === 0 ? "No running sessions" : `Broadcast to ${nonIdleCount} session${nonIdleCount !== 1 ? "s" : ""}`}
+            onClick={() => {
+              if (nonIdleCount === 0) return;
+              setSignalOpen((v) => !v);
+              setSignalError(null);
+            }}
+            disabled={nonIdleCount === 0}
+          >
+            ⌁ Signal
+          </button>
         </div>
       </header>
+
+      {signalOpen && (
+        <div
+          className={`signal-command-bar${signalError ? " signal-command-bar--error" : ""}`}
+          style={{ position: "relative" }}
+        >
+          <input
+            ref={signalInputRef}
+            className="signal-command-bar__input"
+            placeholder="Broadcast to all running sessions..."
+            value={signalMessage}
+            maxLength={512}
+            autoFocus
+            readOnly={signalPending}
+            onChange={(e) => {
+              setSignalMessage(e.target.value);
+              setSignalError(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSignalSubmit();
+              }
+              if (e.key === "Escape") handleSignalCancel();
+            }}
+          />
+          {signalMessage.length > 409 && (
+            <span className="signal-command-bar__counter">
+              {signalMessage.length}/512
+            </span>
+          )}
+          {signalPending && (
+            <span className="signal-command-bar__toast">
+              Sending to {nonIdleCount} session{nonIdleCount !== 1 ? "s" : ""} —{" "}
+              <button
+                className="signal-command-bar__cancel"
+                onClick={handleSignalCancel}
+              >
+                Cancel
+              </button>
+            </span>
+          )}
+          {signalError && (
+            <span className="signal-command-bar__error-text">{signalError}</span>
+          )}
+        </div>
+      )}
 
       <main style={styles.main}>
         {!loading && sessions.length === 0 ? (
@@ -410,6 +563,8 @@ export default function App() {
                 session={session}
                 isSource={sourceIds.has(session.id)}
                 isTarget={targetIds.has(session.id)}
+                signalSuccess={signalFlashIds.has(session.id)}
+                signalFail={signalFailIds.has(session.id)}
               />
             ))}
           </div>
