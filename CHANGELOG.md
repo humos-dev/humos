@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.5] - 2026-04-11
+
+### Fixed — signal() QA pass
+- **UTF-8 preview panic**: `signal_sessions` log preview previously sliced bytes (`&message[..message.len().min(60)]`) which panics on multi-byte UTF-8 char boundaries (emoji, non-ASCII). Now uses `message.chars().take(60).collect()`.
+- **Server-side message validation**: `signal_sessions` now rejects empty/whitespace-only messages, enforces `SIGNAL_MAX_CHARS` (512) server-side in characters (not bytes), and replaces control characters (newlines, tabs) with spaces so broadcasts can't fragment the Claude CLI prompt mid-draft.
+- **Empty-targets error**: `signal_sessions` now returns `Err("No active sessions.")` instead of silently emitting an empty broadcast when the non-idle session set has gone empty between button click and command fire.
+- **Tokio worker blocking**: the inject loop (N × ~400ms AppleScript calls) now runs inside `tokio::task::spawn_blocking` so it can't tie up a tokio async worker for the full broadcast duration.
+- **Signal flash/fail timeout leaks**: `setSignalFlashIds` and `setSignalFailIds` `setTimeout`s now live in `signalFlashTimeoutRef` / `signalFailTimeoutRef` and are cleared in the unmount cleanup effect (mirrors the v0.3.4 `animatePipeLine` pattern). Rapid re-signals now cancel the prior in-flight clear-timeout so a new flash set can't be clobbered mid-window.
+- **Double-submit race**: `handleSignalSubmit` now hard-clears any stacked `signalUndoRef` timeout before starting a new one (stops two pending undo windows from firing back-to-back).
+- **Empty `results` false-positive**: frontend now handles `results.length === 0` explicitly with an error banner instead of falling through the `allFailed` branch.
+- **Partial-failure surfacing**: when some sessions fail, the failed project names are now listed in the error banner (up to 5) and the activity log (up to 3). Previously `fail_ids` round-tripped to the UI but were silently discarded.
+- **Escape key decoupling**: Escape no longer simultaneously closes the Pipes drawer AND cancels a pending signal. The handler now dispatches to whichever modal is open, with Signal taking priority.
+- **Pipes/Signal mutual exclusion**: opening the Signal command bar now closes the Pipes drawer (and vice versa). Previously both could be open simultaneously with stacked z-index and weird focus behavior.
+- **1-session plural bug**: command bar placeholder was hardcoded `"all active sessions"` regardless of count. Now reads `Broadcast to ${N} session${s} — Enter to send, Esc to cancel`. Tooltip wording also clarified to `"Needs a running or waiting session"` when disabled.
+- **Accessibility**: input gained `aria-label="Signal broadcast message"`; disabled Signal button gained `aria-label` + grayscale filter so screen readers and sighted keyboard users both get an unambiguous state.
+- **Focus on re-open**: added `useEffect` on `signalOpen` that calls `signalInputRef.current?.focus()` — `autoFocus` only fires once on mount, so toggling the bar open a second time left the caret unfocused.
+- **Log format**: activity log entry switched from `⌁ signal → N sessions: [preview]` to `⌁ N/M · [preview]` and suppresses the entry entirely when `success_count === 0` (a failure-only entry is emitted from `handleSignalSubmit` instead).
+
 ## [0.3.4] - 2026-04-11
 
 ### Fixed

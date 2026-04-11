@@ -46,18 +46,42 @@ struct SignalFiredEvent {
     fail_count: usize,
 }
 
+/// Maximum message length accepted by `signal_sessions`, in characters.
+/// Mirrors the UI limit — enforced server-side so any bypassing caller can't
+/// slip through with a multi-megabyte payload.
+const SIGNAL_MAX_CHARS: usize = 512;
+
 /// Tauri command: broadcast a message to every non-idle session.
 ///
 /// Iterates all sessions where `status != "idle"` (running + waiting), calls
 /// `inject_message` for each, then emits a `signal-fired` event so the UI can
 /// animate and log the result.  Partial failure is handled gracefully — results
 /// for each session are returned regardless of whether injection succeeded.
+///
+/// Message content is validated server-side: trimmed, non-empty, capped at
+/// SIGNAL_MAX_CHARS characters (not bytes), and stripped of control characters
+/// (newlines/tabs would fragment the Claude CLI input mid-prompt).
 #[tauri::command]
 async fn signal_sessions(
     message: String,
     state: State<'_, SessionMap>,
     app: AppHandle,
 ) -> Result<Vec<SignalResult>, String> {
+    // Validate and sanitize the message.
+    let trimmed = message.trim();
+    if trimmed.is_empty() {
+        return Err("Message is empty.".to_string());
+    }
+    if trimmed.chars().count() > SIGNAL_MAX_CHARS {
+        return Err(format!("Message exceeds {} character limit.", SIGNAL_MAX_CHARS));
+    }
+    // Replace newlines/tabs/other control chars with spaces so the message lands
+    // in the Claude CLI prompt as a single line rather than submitting mid-draft.
+    let sanitized: String = trimmed
+        .chars()
+        .map(|c| if c.is_control() { ' ' } else { c })
+        .collect();
+
     // Snapshot non-idle sessions while holding the lock, then drop it immediately.
     let targets: Vec<(String, String, String)> = {
         let sessions = state.lock().unwrap_or_else(|e| e.into_inner());
@@ -68,17 +92,30 @@ async fn signal_sessions(
             .collect()
     };
 
-    let mut results: Vec<SignalResult> = Vec::with_capacity(targets.len());
-
-    for (id, project, cwd) in &targets {
-        let outcome = applescript::inject_message(cwd, &message);
-        results.push(SignalResult {
-            session_id: id.clone(),
-            project: project.clone(),
-            success: outcome.is_ok(),
-            error: outcome.err(),
-        });
+    if targets.is_empty() {
+        return Err("No active sessions.".to_string());
     }
+
+    // AppleScript calls are blocking (~200-500ms each). Offload the inject loop
+    // to the blocking thread pool so we don't tie up a tokio worker for the
+    // full broadcast duration.
+    let msg_for_blocking = sanitized.clone();
+    let targets_for_blocking = targets.clone();
+    let results: Vec<SignalResult> = tokio::task::spawn_blocking(move || {
+        let mut out = Vec::with_capacity(targets_for_blocking.len());
+        for (id, project, cwd) in targets_for_blocking {
+            let outcome = applescript::inject_message(&cwd, &msg_for_blocking);
+            out.push(SignalResult {
+                session_id: id,
+                project,
+                success: outcome.is_ok(),
+                error: outcome.err(),
+            });
+        }
+        out
+    })
+    .await
+    .map_err(|e| format!("signal broadcast task panicked: {}", e))?;
 
     let success_ids: Vec<String> = results
         .iter()
@@ -92,7 +129,7 @@ async fn signal_sessions(
         .collect();
 
     let evt = SignalFiredEvent {
-        message: message.clone(),
+        message: sanitized.clone(),
         success_count: success_ids.len(),
         fail_count: fail_ids.len(),
         success_ids,
@@ -103,12 +140,15 @@ async fn signal_sessions(
         log::error!("emit signal-fired error: {}", e);
     }
 
+    // Preview: char-based truncation (not byte slice) — avoids panic on
+    // multi-byte UTF-8 boundaries (emoji, non-ASCII).
+    let preview: String = sanitized.chars().take(60).collect();
     log::info!(
         "signal: broadcast to {} sessions ({} ok, {} failed): {}",
         targets.len(),
         evt.success_count,
         evt.fail_count,
-        &message[..message.len().min(60)]
+        preview
     );
 
     Ok(results)

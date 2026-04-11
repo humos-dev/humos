@@ -233,6 +233,8 @@ export default function App() {
   // Mirror of sessions for use inside event listener closures without staleness.
   const sessionsRef = useRef<SessionState[]>([]);
   const signalUndoRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const signalFlashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const signalFailTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const signalInputRef = useRef<HTMLInputElement>(null);
 
   const loadSessions = useCallback(async () => {
@@ -358,28 +360,50 @@ export default function App() {
     loadPipeRules();
   }, [pipeOpen, loadPipeRules]);
 
-  // Clear any pending signal-undo timeout on unmount so we don't fire
-  // invoke() against a torn-down component.
+  // Clear any pending signal-related timeouts on unmount so we don't fire
+  // invoke() or setState against a torn-down component. Mirrors the v0.3.4
+  // animatePipeLine cleanup pattern for the flash/fail timers that previously
+  // leaked and could clobber a newer signal's flash set mid-flight.
   useEffect(() => {
     return () => {
       if (signalUndoRef.current) {
         clearTimeout(signalUndoRef.current);
         signalUndoRef.current = null;
       }
+      if (signalFlashTimeoutRef.current) {
+        clearTimeout(signalFlashTimeoutRef.current);
+        signalFlashTimeoutRef.current = null;
+      }
+      if (signalFailTimeoutRef.current) {
+        clearTimeout(signalFailTimeoutRef.current);
+        signalFailTimeoutRef.current = null;
+      }
     };
   }, []);
 
-  // Close pipe drawer and signal bar with Escape.
+  // Close only the currently-open modal with Escape. Signal bar takes priority
+  // if both are somehow open — but the mutual-exclusion logic on toggle should
+  // prevent that.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setPipeOpen(false);
+      if (e.key !== "Escape") return;
+      if (signalOpen) {
         handleSignalCancel();
+      } else if (pipeOpen) {
+        setPipeOpen(false);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [signalOpen, pipeOpen]);
+
+  // Focus the signal input whenever the command bar opens (covers re-open,
+  // which won't re-run autoFocus).
+  useEffect(() => {
+    if (signalOpen && signalInputRef.current) {
+      signalInputRef.current.focus();
+    }
+  }, [signalOpen]);
 
   // Listen for signal-fired events — flash cards and log.
   useEffect(() => {
@@ -388,23 +412,37 @@ export default function App() {
 
       if (success_ids.length > 0) {
         setSignalFlashIds(new Set(success_ids));
-        setTimeout(() => setSignalFlashIds(new Set()), 800);
+        // Clear any prior in-flight flash timeout so a rapid re-signal can't
+        // blow away the new flash set mid-window.
+        if (signalFlashTimeoutRef.current) clearTimeout(signalFlashTimeoutRef.current);
+        signalFlashTimeoutRef.current = setTimeout(() => {
+          setSignalFlashIds(new Set());
+          signalFlashTimeoutRef.current = null;
+        }, 800);
       }
       if (fail_ids.length > 0) {
         setSignalFailIds(new Set(fail_ids));
-        setTimeout(() => setSignalFailIds(new Set()), 1000);
+        if (signalFailTimeoutRef.current) clearTimeout(signalFailTimeoutRef.current);
+        signalFailTimeoutRef.current = setTimeout(() => {
+          setSignalFailIds(new Set());
+          signalFailTimeoutRef.current = null;
+        }, 1000);
       }
 
-      const preview = message.length > 40 ? message.slice(0, 40) + "..." : message;
-      const failNote = fail_count > 0 ? ` (${fail_count} failed)` : "";
-      setLog((prev) => {
-        const entry: LogEntry = {
-          id: logSeqRef.current++,
-          text: `⌁ signal → ${success_count} sessions: ${preview}${failNote}`,
-          ts: now(),
-        };
-        return [entry, ...prev].slice(0, LOG_MAX);
-      });
+      const preview = message.length > 40 ? message.slice(0, 40) + "…" : message;
+      // Suppress log entry when zero sessions received the message — a failure-only
+      // entry is emitted from handleSignalSubmit instead.
+      if (success_count > 0) {
+        const failNote = fail_count > 0 ? ` (${fail_count} failed)` : "";
+        setLog((prev) => {
+          const entry: LogEntry = {
+            id: logSeqRef.current++,
+            text: `⌁ ${success_count}/${success_count + fail_count} · ${preview}${failNote}`,
+            ts: now(),
+          };
+          return [entry, ...prev].slice(0, LOG_MAX);
+        });
+      }
     });
 
     return () => { unlisten.then((f) => f()); };
@@ -413,6 +451,12 @@ export default function App() {
   function handleSignalSubmit() {
     const msg = signalMessage.trim();
     if (!msg || signalPending) return;
+    // Hard guard against stacked undo timers: if one is already queued,
+    // cancel it before starting a new one.
+    if (signalUndoRef.current) {
+      clearTimeout(signalUndoRef.current);
+      signalUndoRef.current = null;
+    }
 
     setSignalPending(true);
     setSignalError(null);
@@ -424,18 +468,53 @@ export default function App() {
           "signal_sessions",
           { message: msg }
         );
-        const allFailed = results.length > 0 && results.every((r) => !r.success);
-        if (allFailed) {
-          setSignalError("Signal failed — no sessions received it");
+
+        // Empty-targets: shouldn't happen (button is disabled), but if the
+        // session set went idle between click and fire, the backend returns
+        // Err("No active sessions") which lands in the catch branch below.
+        // If we somehow got an empty array back, treat as failure too.
+        if (results.length === 0) {
+          setSignalError("No active sessions received the message.");
           setSignalPending(false);
+          return;
+        }
+
+        const failed = results.filter((r) => !r.success);
+        if (failed.length === results.length) {
+          // All failed: list failed project names so the user can act.
+          const names = failed.map((r) => r.project).slice(0, 5).join(", ");
+          const more = failed.length > 5 ? ` +${failed.length - 5} more` : "";
+          setSignalError(`0 of ${results.length} received. Failed: ${names}${more}`);
+          setSignalPending(false);
+        } else if (failed.length > 0) {
+          // Partial failure: surface names but allow the bar to close so the user
+          // can see the card flashes. They still get the failure info via log + toast.
+          const names = failed.map((r) => r.project).slice(0, 3).join(", ");
+          const more = failed.length > 3 ? ` +${failed.length - 3}` : "";
+          setLog((prev) => {
+            const entry: LogEntry = {
+              id: logSeqRef.current++,
+              text: `⌁ signal failed for ${failed.length}: ${names}${more}`,
+              ts: now(),
+            };
+            return [entry, ...prev].slice(0, LOG_MAX);
+          });
+          setSignalMessage("");
+          setSignalOpen(false);
+          setSignalPending(false);
+          setSignalError(null);
         } else {
+          // All succeeded.
           setSignalMessage("");
           setSignalOpen(false);
           setSignalPending(false);
           setSignalError(null);
         }
       } catch (err) {
-        setSignalError(`Signal failed: ${err}`);
+        // Rust returns Err for empty msg, over-length, or empty session set.
+        // Strip the Tauri error prefix noise if present.
+        const errMsg = String(err).replace(/^Error: /, "");
+        setSignalError(errMsg);
         setSignalPending(false);
       }
     }, 2000);
@@ -490,7 +569,11 @@ export default function App() {
               ...styles.pipeBtn,
               ...(pipeOpen ? styles.pipeBtnActive : {}),
             }}
-            onClick={() => setPipeOpen((v) => !v)}
+            onClick={() => {
+              // Mutual exclusion: opening Pipes closes the Signal bar.
+              if (signalOpen) handleSignalCancel();
+              setPipeOpen((v) => !v);
+            }}
           >
             Pipes {pipeOpen ? "▼" : "▲"}
             {pipeRules.length > 0 && (
@@ -510,14 +593,17 @@ export default function App() {
             )}
           </button>
           <button
+            aria-label={nonIdleCount === 0 ? "Signal (no active sessions)" : `Signal ${nonIdleCount} active session${nonIdleCount !== 1 ? "s" : ""}`}
             style={{
               ...styles.pipeBtn,
               ...(signalOpen ? styles.pipeBtnActive : {}),
-              ...(nonIdleCount === 0 ? { opacity: 0.35, cursor: "not-allowed" } : {}),
+              ...(nonIdleCount === 0 ? { opacity: 0.35, cursor: "not-allowed", filter: "grayscale(1)" } : {}),
             }}
-            title={nonIdleCount === 0 ? "No active sessions" : `Broadcast to ${nonIdleCount} session${nonIdleCount !== 1 ? "s" : ""}`}
+            title={nonIdleCount === 0 ? "Needs a running or waiting session" : `Broadcast to ${nonIdleCount} session${nonIdleCount !== 1 ? "s" : ""}`}
             onClick={() => {
               if (nonIdleCount === 0) return;
+              // Mutual exclusion: opening Signal closes the Pipes drawer.
+              if (pipeOpen) setPipeOpen(false);
               setSignalOpen((v) => !v);
               setSignalError(null);
             }}
@@ -536,7 +622,8 @@ export default function App() {
           <input
             ref={signalInputRef}
             className="signal-command-bar__input"
-            placeholder="Broadcast to all active sessions..."
+            placeholder={`Broadcast to ${nonIdleCount} session${nonIdleCount !== 1 ? "s" : ""} — Enter to send, Esc to cancel`}
+            aria-label="Signal broadcast message"
             value={signalMessage}
             maxLength={512}
             autoFocus
