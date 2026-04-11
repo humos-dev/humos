@@ -71,6 +71,8 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "4px",
     padding: "8px 10px",
     minHeight: "36px",
+    maxHeight: "60px",
+    overflowY: "hidden" as const,
     wordBreak: "break-word",
     whiteSpace: "pre-wrap",
   },

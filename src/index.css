@@ -69,6 +69,9 @@ body {
   flex-direction: column;
   gap: 12px;
   transition: border-color 0.15s;
+  /* Fixed height prevents layout shifts on session updates */
+  height: 186px;
+  overflow: hidden;
 }
 
 .session-card--running {

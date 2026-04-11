@@ -181,6 +181,7 @@ const styles: Record<string, React.CSSProperties> = {
   grid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
+    alignItems: "start",
     gap: "16px",
   },
   empty: {

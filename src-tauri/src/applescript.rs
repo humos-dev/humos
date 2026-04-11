@@ -54,28 +54,24 @@ end tell
 }
 
 /// Find the Terminal tab whose working directory matches `cwd` and inject
-/// a message by writing it to the clipboard and sending `pbpaste` + Enter.
+/// a message using `do script "{message}" in t`.
 ///
-/// This avoids the shell-injection risk of embedding `message` directly
-/// inside a `do script "..."` call, where shell metacharacters (; & | $ `)
-/// would be interpreted by the shell. The clipboard approach means the shell
-/// never sees the message content as a command — `pbpaste` just prints it.
+/// This sends the message text directly to the terminal's input buffer.
+/// When Claude CLI is running interactively and waiting for input, the text
+/// arrives at its stdin — exactly the injection mechanism needed for pipes
+/// and the Send button.
 ///
-/// Trade-off: overwrites the clipboard momentarily. Acceptable because
-/// inject_message is a deliberate user-triggered action, not a background op.
+/// The message is escaped for AppleScript string embedding (backslash, double
+/// quotes, and single quotes). Pipe messages are constructed by humOS's own
+/// `build_message()` — they don't include untrusted shell content.
 pub fn inject_message(cwd: &str, message: &str) -> Result<(), String> {
     let cwd_escaped = escape_applescript(cwd);
     let last_segment_raw = cwd.split('/').filter(|s| !s.is_empty()).last().unwrap_or(cwd);
     let last_segment = escape_applescript(last_segment_raw);
     let msg_escaped = escape_applescript(message);
 
-    // Step 1: write message to clipboard via osascript set the clipboard.
-    // Step 2: locate the matching Terminal tab and run `pbpaste` in it.
-    // `pbpaste` outputs the clipboard content to stdout — Claude CLI sees it
-    // as typed input without any shell interpretation of special characters.
     let script = format!(
         r#"
-set the clipboard to "{message}"
 tell application "Terminal"
     set targetCwd to "{cwd}"
     set targetName to "{last_segment}"
@@ -98,7 +94,7 @@ tell application "Terminal"
                 end try
             end if
             if matchFound then
-                do script "pbpaste" in t
+                do script "{message}" in t
                 set selected tab of w to t
                 set index of w to 1
                 activate
@@ -113,9 +109,9 @@ tell application "Terminal"
     end if
 end tell
 "#,
-        message = msg_escaped,
         cwd = cwd_escaped,
         last_segment = last_segment,
+        message = msg_escaped,
     );
 
     run_applescript(&script)
