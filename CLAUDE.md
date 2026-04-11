@@ -4,7 +4,7 @@ Native macOS Tauri app that monitors all active Claude CLI sessions in real-time
 
 **Stack:** Rust (Tauri v2) + React + TypeScript  
 **Dev:** `PATH="$HOME/.cargo/bin:$PATH" npm run tauri dev`  
-**Repo:** https://github.com/BoluOgunbiyi/claude-control-room
+**Repo:** https://github.com/BoluOgunbiyi/humos
 
 ## Skill routing
 
