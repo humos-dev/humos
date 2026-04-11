@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.1] - 2026-04-11
+
+### Added
+- `PLAN-signal.md`: fully reviewed plan for `signal()` (Primitive 2) — broadcast a message to all running+waiting sessions simultaneously via AppleScript injection. Passed 4-phase autoplan review (CEO, Design, Eng, DX). 19 decisions logged.
+- TODOS.md: 6 new deferred items — signal() v2 selective broadcast, signal vocabulary, programmatic API, file-based signaling, parallel injection (N>15), and humOS runtime model spec
+
 ## [0.2.0] - 2026-04-11
 
 ### Added

@@ -202,3 +202,31 @@ Current `parser.rs` is Claude-specific. Refactor plan:
 
 P1 — this is the moat. No other tool (Conductor, opcode, claude-control) is agent-agnostic.
 Being Claude-only is a ceiling. Being the coordination layer for ALL local agents is the 10x position.
+
+---
+
+## Post-signal() Roadmap (added 2026-04-11 by /autoplan)
+
+### signal() v2: Selective Broadcast
+Add session tagging/grouping so signal can target a subset of sessions ("abort backend agents, keep frontend running"). Requires SessionState.tags field and UI to assign tags. Design alongside join() since both need session grouping.
+**Effort:** M | **Priority:** P2
+
+### signal() v2: Signal Vocabulary
+Define a vocabulary of structured signals (ABORT, PAUSE, CHECKPOINT, REDIRECT) that produce consistent agent behavior regardless of phrasing. Freeform text is powerful but inconsistent.
+**Effort:** S | **Priority:** P2
+
+### signal() v3: Programmatic API
+Make signal_sessions callable from other sessions (pipe → signal chain). Enables agent-to-agent signaling without human in the loop. The real primitive for an AI OS.
+**Effort:** M | **Priority:** P1
+
+### signal() v3: File-based signaling
+Write to ~/.humOS/signals.json watched by sessions, as an alternative to AppleScript injection. More reliable, works with non-terminal agents (browser agents, API agents). Requires agents to be primed to watch.
+**Effort:** M | **Priority:** P2
+
+### signal() scale: Parallel injection
+For N>15 sessions, spawn tokio tasks for parallel AppleScript calls. ~2s sequential latency becomes ~200ms parallel.
+**Effort:** S | **Priority:** P3
+
+### Strategic: humOS Runtime Model
+Before shipping join() and orchestrator sessions, define the runtime model: does humOS have a scheduler and message bus, or is it a GUI layer on ad-hoc sessions? These are different architectures. Recommended: define the runtime contract as a spec before building join().
+**Effort:** S (spec), XL (build) | **Priority:** P1
