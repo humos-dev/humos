@@ -7,20 +7,36 @@ pub fn focus_terminal(cwd: &str) -> Result<(), String> {
     // Escape the cwd for safe embedding in AppleScript string
     let cwd_escaped = cwd.replace('\\', "\\\\").replace('"', "\\\"");
 
+    // Extract just the last two path segments for matching (e.g. "/Users/bolu/dex" -> "bolu/dex")
+    // Terminal's auto-title shows the directory name, so matching on the last segment is most reliable.
+    let last_segment = cwd.split('/').filter(|s| !s.is_empty()).last().unwrap_or(&cwd_escaped);
+
     let script = format!(
         r#"
 tell application "Terminal"
     set targetCwd to "{cwd}"
+    set targetName to "{last_segment}"
     set found to false
     repeat with w in windows
         repeat with t in tabs of w
+            set matchFound to false
+            -- Try custom title first
             try
-                set tabCwd to custom title of t
-            on error
-                set tabCwd to ""
+                set tabTitle to custom title of t
+                if tabTitle contains targetCwd or tabTitle contains targetName then
+                    set matchFound to true
+                end if
             end try
-            if tabCwd contains targetCwd then
-                set current settings of t to current settings of t
+            -- Fall back to the tab's auto-generated title (shows current directory)
+            if not matchFound then
+                try
+                    set tabTitle to name of t
+                    if tabTitle contains targetCwd or tabTitle contains targetName then
+                        set matchFound to true
+                    end if
+                end try
+            end if
+            if matchFound then
                 set selected tab of w to t
                 set index of w to 1
                 activate
@@ -35,7 +51,8 @@ tell application "Terminal"
     end if
 end tell
 "#,
-        cwd = cwd_escaped
+        cwd = cwd_escaped,
+        last_segment = last_segment
     );
 
     run_applescript(&script)

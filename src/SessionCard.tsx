@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { SessionState, SessionStatus } from "./types";
 
@@ -56,18 +56,18 @@ const styles: Record<string, React.CSSProperties> = {
   },
   statusLabel: {
     fontSize: "11px",
-    color: "#555",
+    color: "#999",
     textTransform: "uppercase",
     letterSpacing: "0.08em",
   },
   toolBadge: {
     marginLeft: "auto",
     background: "#1a1a1a",
-    border: "1px solid #2a2a2a",
+    border: "1px solid #333",
     borderRadius: "4px",
     padding: "2px 8px",
     fontSize: "10px",
-    color: "#555",
+    color: "#888",
   },
   lastOutput: {
     fontSize: "11px",
@@ -155,7 +155,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   timestamp: {
     fontSize: "10px",
-    color: "#333",
+    color: "#777",
+    lineHeight: 1.5,
   },
 };
 
@@ -164,8 +165,35 @@ export function SessionCard({ session }: Props) {
   const [message, setMessage] = useState("");
   const [summary, setSummary] = useState<string | null>(null);
   const [summarizing, setSummarizing] = useState(false);
+  const [dots, setDots] = useState(".");
+
+  useEffect(() => {
+    if (!summarizing) return;
+    const interval = setInterval(() => {
+      setDots((d) => (d.length >= 3 ? "." : d + "."));
+    }, 400);
+    return () => clearInterval(interval);
+  }, [summarizing]);
 
   const statusInfo = STATUS_DOT[session.status];
+
+  function formatDateTime(iso: string): { date: string; time: string } {
+    if (!iso) return { date: "", time: "" };
+    const d = new Date(iso);
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const diffDays = Math.round((startOfToday.getTime() - startOfDay.getTime()) / 86400000);
+
+    let date: string;
+    if (diffDays === 0) date = "Today";
+    else if (diffDays === 1) date = "Yesterday";
+    else if (diffDays <= 6) date = `${diffDays}d ago`;
+    else date = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+    const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return { date, time };
+  }
 
   async function handleFocus() {
     try {
@@ -231,8 +259,11 @@ export function SessionCard({ session }: Props) {
         />
         <span style={styles.statusLabel}>{statusInfo.label}</span>
         <span style={styles.toolBadge}>{session.tool_count} tool{session.tool_count !== 1 ? "s" : ""}</span>
-        <span style={{ ...styles.timestamp, marginLeft: "auto" }}>
-          {session.modified_at ? new Date(session.modified_at).toLocaleTimeString() : ""}
+        <span style={{ ...styles.timestamp, marginLeft: "auto", textAlign: "right" }}>
+          {(() => {
+            const { date, time } = formatDateTime(session.modified_at);
+            return date ? <>{date}<br />{time}</> : null;
+          })()}
         </span>
       </div>
 
@@ -253,11 +284,11 @@ export function SessionCard({ session }: Props) {
           {sendOpen ? "Cancel" : "Send"}
         </button>
         <button
-          style={styles.btn}
+          style={{ ...styles.btn, opacity: summarizing ? 0.5 : 1 }}
           onClick={handleSummarize}
           disabled={summarizing}
         >
-          {summarizing ? "..." : "Summarize"}
+          {summarizing ? dots : "Summarize"}
         </button>
       </div>
 
@@ -280,7 +311,7 @@ export function SessionCard({ session }: Props) {
       )}
 
       {/* Summary overlay — floats over the card, doesn't affect grid layout */}
-      {summary !== null && (
+      {summary !== null && !summarizing && (
         <div style={styles.summaryOverlay}>
           <div style={styles.summaryTitle}>Summary</div>
           <div style={styles.summaryText}>{summary}</div>
