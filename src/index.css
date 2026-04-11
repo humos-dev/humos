@@ -346,11 +346,13 @@ body {
   padding: 0 16px;
   background: #0d0d0d;
   border-bottom: 1px solid var(--border);
+  border-left: 2px solid var(--signal);
   transition: border-color 0.15s;
 }
 
 .signal-command-bar--error {
   border-bottom-color: #f87171;
+  background: rgba(248, 113, 113, 0.04);
 }
 
 .signal-command-bar__input {
@@ -365,7 +367,7 @@ body {
 }
 
 .signal-command-bar__input::placeholder {
-  color: #444;
+  color: #666;
 }
 
 .signal-command-bar__input:read-only {
@@ -383,6 +385,24 @@ body {
   color: var(--text-2);
   flex-shrink: 0;
   white-space: nowrap;
+  position: relative;
+}
+
+.signal-command-bar__toast::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  height: 1px;
+  width: 100%;
+  background: var(--signal);
+  animation: signal-countdown 2s linear forwards;
+  opacity: 0.6;
+}
+
+@keyframes signal-countdown {
+  from { width: 100%; }
+  to   { width: 0%; }
 }
 
 .signal-command-bar__cancel {

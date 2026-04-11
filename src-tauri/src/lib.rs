@@ -121,6 +121,8 @@ struct PipeFired {
     from_session_id: String,
     to_session_id: String,
     message: String,
+    success: bool,           // add this
+    error: Option<String>,   // add this
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -484,18 +486,24 @@ fn start_watcher(
                                 // Evaluate pipe rules and fire any triggered actions.
                                 let actions = pipe::evaluate_pipes(&pipe_manager_clone, &sessions_clone);
                                 for action in actions {
-                                    // Emit pipe-fired before injecting so the UI can animate.
+                                    let inject_result = applescript::inject_message(&action.target_cwd, &action.message);
+                                    let (success, error_msg) = match &inject_result {
+                                        Ok(()) => (true, None),
+                                        Err(e) => {
+                                            log::error!("pipe: inject failed for {}: {}", action.target_cwd, e);
+                                            (false, Some(e.clone()))
+                                        }
+                                    };
                                     let fired_evt = PipeFired {
                                         rule_id: action.rule_id.clone(),
                                         from_session_id: action.from_session_id.clone(),
                                         to_session_id: action.to_session_id.clone(),
                                         message: action.message.clone(),
+                                        success,
+                                        error: error_msg,
                                     };
                                     if let Err(e) = app_clone.emit("pipe-fired", &fired_evt) {
                                         log::error!("emit pipe-fired error: {}", e);
-                                    }
-                                    if let Err(e) = applescript::inject_message(&action.target_cwd, &action.message) {
-                                        log::error!("pipe: inject failed for {}: {}", action.target_cwd, e);
                                     }
                                 }
                             }

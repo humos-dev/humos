@@ -390,6 +390,7 @@ export default function App() {
     setSignalError(null);
 
     signalUndoRef.current = setTimeout(async () => {
+      signalUndoRef.current = null;
       try {
         const results = await invoke<Array<{ session_id: string; project: string; success: boolean; error?: string }>>(
           "signal_sessions",
@@ -486,7 +487,7 @@ export default function App() {
               ...(signalOpen ? styles.pipeBtnActive : {}),
               ...(nonIdleCount === 0 ? { opacity: 0.35, cursor: "not-allowed" } : {}),
             }}
-            title={nonIdleCount === 0 ? "No running sessions" : `Broadcast to ${nonIdleCount} session${nonIdleCount !== 1 ? "s" : ""}`}
+            title={nonIdleCount === 0 ? "No active sessions" : `Broadcast to ${nonIdleCount} session${nonIdleCount !== 1 ? "s" : ""}`}
             onClick={() => {
               if (nonIdleCount === 0) return;
               setSignalOpen((v) => !v);
@@ -507,7 +508,7 @@ export default function App() {
           <input
             ref={signalInputRef}
             className="signal-command-bar__input"
-            placeholder="Broadcast to all running sessions..."
+            placeholder="Broadcast to all active sessions..."
             value={signalMessage}
             maxLength={512}
             autoFocus
@@ -531,12 +532,12 @@ export default function App() {
           )}
           {signalPending && (
             <span className="signal-command-bar__toast">
-              Sending to {nonIdleCount} session{nonIdleCount !== 1 ? "s" : ""} —{" "}
+              Queued for {nonIdleCount} session{nonIdleCount !== 1 ? "s" : ""} —{" "}
               <button
                 className="signal-command-bar__cancel"
                 onClick={handleSignalCancel}
               >
-                Cancel
+                Undo
               </button>
             </span>
           )}

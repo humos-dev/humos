@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.1] - 2026-04-11
+
+### Fixed
+- **pipe `OnFileWrite`**: no longer fires on assistant text that mentions a filename (e.g. "I updated schema.json"). Now guards with `starts_with("Running:")` so only actual tool invocations trigger the rule
+- **pipe `pipe-fired` event**: now emitted AFTER `inject_message` completes, with `success: bool` and `error: Option<String>` fields. UI no longer shows the pipe animation for injections that silently failed
+- **signal button tooltip**: "No running sessions" → "No active sessions" (waiting sessions also enable Signal)
+- **signal placeholder**: "Broadcast to all running sessions" → "Broadcast to all active sessions"
+- **signal undo toast**: "Sending" → "Queued", "Cancel" → "Undo" (more accurate — action hasn't fired yet)
+- **signalUndoRef**: nulled immediately when the 2-second window fires, preventing stale ref on subsequent signals
+- **signal command bar**: placeholder contrast raised (#444 → #666), left-border accent added, error state gets red background tint, countdown animation on undo toast
+
 ## [0.3.0] - 2026-04-11
 
 ### Added

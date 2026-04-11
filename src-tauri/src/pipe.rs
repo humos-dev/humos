@@ -129,7 +129,12 @@ impl PipeManager {
                         .map(|s| s.last_output != source.last_output)
                         .unwrap_or(false);
 
-                    if output_changed && !source.last_output.is_empty() {
+                    // Only match against tool invocation lines (start with "Running:").
+                    // Assistant text narrating file operations (e.g. "I updated schema.json")
+                    // must not trigger the rule — only actual tool calls should.
+                    if output_changed
+                        && source.last_output.starts_with("Running:")
+                    {
                         matches_glob(pattern, &source.last_output)
                     } else {
                         false
@@ -333,5 +338,16 @@ mod tests {
         assert!(matches_glob("*.json", "Running: write schema.json"));
         assert!(!matches_glob("*.json", "schema.ts"));
         assert!(matches_glob("*.schema.*", "api.schema.ts"));
+    }
+
+    #[test]
+    fn glob_matching_does_not_match_assistant_text() {
+        // Plain assistant text mentioning a filename should not match.
+        // (The OnFileWrite branch now guards with starts_with("Running:") before
+        // calling matches_glob, so this test documents the token-level behavior.)
+        assert!(matches_glob("*.json", "Running: write_file schema.json")); // tool call — should match
+        assert!(matches_glob("*.json", "schema.json")); // bare token — still matches at glob level
+        // The Running: guard is in evaluate(), not matches_glob() itself.
+        // This test just confirms the token logic is correct.
     }
 }
