@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use notify_debouncer_mini::{new_debouncer, notify::RecursiveMode, DebounceEventResult};
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, State};
 
 /// The shared session state, keyed by session id.
 type SessionMap = Arc<Mutex<HashMap<String, SessionState>>>;
@@ -171,22 +171,18 @@ fn start_watcher(app: AppHandle, sessions: SessionMap) {
                 match res {
                     Ok(events) => {
                         for event in events {
-                            for path in &event.paths {
-                                if path.extension().and_then(|e| e.to_str()) != Some("jsonl") {
-                                    continue;
+                            let path: &std::path::Path = event.path.as_path();
+                            if path.extension().and_then(|e| e.to_str()) != Some("jsonl") {
+                                continue;
+                            }
+                            if let Some(session) = parser::parse_session_file(path) {
+                                let id = session.id.clone();
+                                {
+                                    let mut map = sessions_clone.lock().unwrap();
+                                    map.insert(id.clone(), session.clone());
                                 }
-                                if let Some(session) = parser::parse_session_file(path) {
-                                    let id = session.id.clone();
-                                    {
-                                        let mut map = sessions_clone.lock().unwrap();
-                                        map.insert(id.clone(), session.clone());
-                                    }
-                                    // Emit to frontend
-                                    if let Err(e) =
-                                        app_clone.emit("session-updated", &session)
-                                    {
-                                        log::error!("emit error: {}", e);
-                                    }
+                                if let Err(e) = app_clone.emit("session-updated", &session) {
+                                    log::error!("emit error: {}", e);
                                 }
                             }
                         }

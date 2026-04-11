@@ -8,16 +8,24 @@ use serde_json::Value;
 
 use crate::SessionState;
 
-/// Raw JSONL line shapes we care about.
+/// Raw JSONL line — all fields are optional because not every line has all of them.
 #[derive(Deserialize, Debug)]
 struct RawLine {
+    /// Top-level event type: "user", "assistant", "progress", "file-history-snapshot", etc.
     #[serde(rename = "type")]
     kind: Option<String>,
-    subtype: Option<String>,
+
+    /// Present on most lines — the working directory for the session.
     cwd: Option<String>,
+
+    /// Present on most lines — the session UUID.
     #[serde(rename = "sessionId")]
     session_id: Option<String>,
+
+    /// The message payload (for "user" and "assistant" type lines).
     message: Option<Value>,
+
+    /// Timestamp of this event.
     timestamp: Option<String>,
 }
 
@@ -52,28 +60,37 @@ pub fn parse_session_file(path: &Path) -> Option<SessionState> {
             Err(_) => continue,
         };
 
-        // Init line — grab cwd and session id
-        if parsed.kind.as_deref() == Some("system")
-            && parsed.subtype.as_deref() == Some("init")
-        {
+        // Grab cwd and session_id from whichever line has them first.
+        if cwd.is_empty() {
             if let Some(c) = &parsed.cwd {
-                cwd = c.clone();
+                if !c.is_empty() {
+                    cwd = c.clone();
+                }
             }
+        }
+        if session_id == filename {
             if let Some(id) = &parsed.session_id {
-                session_id = id.clone();
+                if !id.is_empty() {
+                    session_id = id.clone();
+                }
             }
-            if started_at.is_empty() {
-                started_at = parsed.timestamp.clone().unwrap_or_default();
+        }
+        if started_at.is_empty() {
+            if let Some(ts) = &parsed.timestamp {
+                started_at = ts.clone();
             }
+        }
+
+        // Only process user/assistant event lines for status tracking.
+        let kind = parsed.kind.as_deref().unwrap_or("");
+        if kind != "user" && kind != "assistant" {
             continue;
         }
 
-        // Message lines
-        if let Some(msg) = &parsed.message {
-            let role = msg.get("role").and_then(|r| r.as_str()).unwrap_or("").to_string();
-            last_role = Some(role.clone());
+        last_role = Some(kind.to_string());
 
-            if role == "assistant" {
+        if kind == "assistant" {
+            if let Some(msg) = &parsed.message {
                 if let Some(content_arr) = msg.get("content").and_then(|c| c.as_array()) {
                     for item in content_arr {
                         let item_type = item.get("type").and_then(|t| t.as_str()).unwrap_or("");
@@ -102,7 +119,12 @@ pub fn parse_session_file(path: &Path) -> Option<SessionState> {
         }
     }
 
-    // Derive project from last segment of cwd
+    // Require at least a cwd or session_id to consider this a valid session.
+    if cwd.is_empty() && session_id == filename {
+        return None;
+    }
+
+    // Derive project name from last path segment of cwd.
     let project = if cwd.is_empty() {
         filename.clone()
     } else {
@@ -112,7 +134,6 @@ pub fn parse_session_file(path: &Path) -> Option<SessionState> {
             .unwrap_or_else(|| cwd.clone())
     };
 
-    // Status heuristic: parse modified_at and compare with now
     let status = compute_status(&modified_at, last_role.as_deref());
 
     Some(SessionState {
@@ -163,7 +184,6 @@ fn truncate(s: &str, max: usize) -> &str {
     if s.len() <= max {
         s
     } else {
-        // Truncate at char boundary
         let mut idx = max;
         while !s.is_char_boundary(idx) {
             idx -= 1;

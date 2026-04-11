@@ -1,13 +1,9 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { pluginTauri } from "@tauri-apps/vite-plugin";
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [
-    react(),
-    pluginTauri(),
-  ],
+  plugins: [react()],
   // Prevent vite from obscuring Rust errors
   clearScreen: false,
   server: {
