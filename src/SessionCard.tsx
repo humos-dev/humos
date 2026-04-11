@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { SessionState, SessionStatus } from "./types";
+import { formatDateTime } from "./utils/formatDateTime";
 
 interface Props {
   session: SessionState;
@@ -166,6 +167,7 @@ export function SessionCard({ session }: Props) {
   const [summary, setSummary] = useState<string | null>(null);
   const [summarizing, setSummarizing] = useState(false);
   const [dots, setDots] = useState(".");
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!summarizing) return;
@@ -175,31 +177,21 @@ export function SessionCard({ session }: Props) {
     return () => clearInterval(interval);
   }, [summarizing]);
 
+  useEffect(() => {
+    if (actionError) {
+      const t = setTimeout(() => setActionError(null), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [actionError]);
+
   const statusInfo = STATUS_DOT[session.status];
-
-  function formatDateTime(iso: string): { date: string; time: string } {
-    if (!iso) return { date: "", time: "" };
-    const d = new Date(iso);
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    const diffDays = Math.round((startOfToday.getTime() - startOfDay.getTime()) / 86400000);
-
-    let date: string;
-    if (diffDays === 0) date = "Today";
-    else if (diffDays === 1) date = "Yesterday";
-    else if (diffDays <= 6) date = `${diffDays}d ago`;
-    else date = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-
-    const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    return { date, time };
-  }
 
   async function handleFocus() {
     try {
       await invoke("focus_session", { sessionId: session.id });
     } catch (err) {
       console.error("focus_session error:", err);
+      setActionError("Focus failed — Terminal window not found");
     }
   }
 
@@ -214,6 +206,7 @@ export function SessionCard({ session }: Props) {
       setSendOpen(false);
     } catch (err) {
       console.error("inject_message error:", err);
+      setActionError("Send failed — could not inject message");
     }
   }
 
@@ -318,6 +311,13 @@ export function SessionCard({ session }: Props) {
           <button style={styles.summaryClose} onClick={() => setSummary(null)}>
             Dismiss
           </button>
+        </div>
+      )}
+
+      {/* Action error display — auto-clears after 3s */}
+      {actionError && (
+        <div style={{ fontSize: "11px", color: "#f87171", marginTop: "-4px" }}>
+          {actionError}
         </div>
       )}
     </div>

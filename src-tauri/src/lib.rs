@@ -1,5 +1,6 @@
 mod applescript;
 mod parser;
+pub mod pipe;
 
 use std::collections::HashMap;
 use std::fs;
@@ -164,7 +165,7 @@ async fn summarize_session(session_id: String) -> Result<String, String> {
 
 /// Walk the projects directory and find a .jsonl whose stem matches session_id.
 fn find_jsonl(base: &PathBuf, session_id: &str) -> Option<PathBuf> {
-    for entry in walkdir_shallow(base) {
+    for entry in walkdir_recursive(base) {
         let path = entry;
         if path.extension().and_then(|e| e.to_str()) == Some("jsonl") {
             if path.file_stem().and_then(|s| s.to_str()) == Some(session_id) {
@@ -177,15 +178,16 @@ fn find_jsonl(base: &PathBuf, session_id: &str) -> Option<PathBuf> {
 
 /// Find the `claude` CLI binary — checks common install locations.
 fn which_claude() -> String {
-    let candidates = [
-        "/Users/boluwatifeogunbiyi/.local/bin/claude",
-        "/usr/local/bin/claude",
-        "/opt/homebrew/bin/claude",
-        "claude",
-    ];
+    let mut candidates: Vec<String> = Vec::new();
+    if let Some(home) = dirs::home_dir() {
+        candidates.push(home.join(".local/bin/claude").to_string_lossy().to_string());
+        candidates.push(home.join(".cargo/bin/claude").to_string_lossy().to_string());
+    }
+    candidates.push("/usr/local/bin/claude".to_string());
+    candidates.push("/opt/homebrew/bin/claude".to_string());
     for c in &candidates {
-        if std::path::Path::new(c).exists() || *c == "claude" {
-            return c.to_string();
+        if std::path::Path::new(c).exists() {
+            return c.clone();
         }
     }
     "claude".to_string()
@@ -198,13 +200,13 @@ fn claude_projects_dir() -> Option<PathBuf> {
 }
 
 /// Simple recursive directory walker returning file paths.
-fn walkdir_shallow(dir: &PathBuf) -> Vec<PathBuf> {
+fn walkdir_recursive(dir: &PathBuf) -> Vec<PathBuf> {
     let mut result = Vec::new();
     if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() {
-                result.extend(walkdir_shallow(&path));
+                result.extend(walkdir_recursive(&path));
             } else {
                 result.push(path);
             }
@@ -220,7 +222,7 @@ fn scan_all_sessions(sessions: &SessionMap) {
         return;
     };
 
-    let files = walkdir_shallow(&projects_dir);
+    let files = walkdir_recursive(&projects_dir);
     let mut map = sessions.lock().unwrap();
     for path in files {
         if path.extension().and_then(|e| e.to_str()) != Some("jsonl") {
@@ -234,7 +236,11 @@ fn scan_all_sessions(sessions: &SessionMap) {
 }
 
 /// Start the notify file watcher in a background thread.
-fn start_watcher(app: AppHandle, sessions: SessionMap) {
+fn start_watcher(
+    app: AppHandle,
+    sessions: SessionMap,
+    pipe_manager: Arc<Mutex<pipe::PipeManager>>,
+) {
     let Some(projects_dir) = claude_projects_dir() else {
         log::warn!("File watcher: could not determine ~/.claude/projects");
         return;
@@ -242,6 +248,7 @@ fn start_watcher(app: AppHandle, sessions: SessionMap) {
 
     std::thread::spawn(move || {
         let sessions_clone = Arc::clone(&sessions);
+        let pipe_manager_clone = Arc::clone(&pipe_manager);
         let app_clone = app.clone();
 
         let mut debouncer = new_debouncer(
@@ -256,12 +263,39 @@ fn start_watcher(app: AppHandle, sessions: SessionMap) {
                             }
                             if let Some(session) = parser::parse_session_file(path) {
                                 let id = session.id.clone();
-                                {
+                                let old_state = {
                                     let mut map = sessions_clone.lock().unwrap();
+                                    let old = map.get(&id).cloned();
                                     map.insert(id.clone(), session.clone());
-                                }
+                                    old
+                                };
                                 if let Err(e) = app_clone.emit("session-updated", &session) {
                                     log::error!("emit error: {}", e);
+                                }
+                                if let Some(old) = old_state {
+                                    if old.status != session.status {
+                                        #[derive(serde::Serialize, Clone)]
+                                        struct Transition {
+                                            session_id: String,
+                                            from_status: String,
+                                            to_status: String,
+                                        }
+                                        let transition = Transition {
+                                            session_id: id.clone(),
+                                            from_status: old.status.clone(),
+                                            to_status: session.status.clone(),
+                                        };
+                                        if let Err(e) = app_clone.emit("session-transitioned", &transition) {
+                                            log::error!("emit transition error: {}", e);
+                                        }
+                                    }
+                                }
+                                // Evaluate pipe rules and fire any triggered actions.
+                                let actions = pipe::evaluate_pipes(&pipe_manager_clone, &sessions_clone);
+                                for action in actions {
+                                    if let Err(e) = applescript::inject_message(&action.target_cwd, &action.message) {
+                                        log::error!("pipe: inject failed for {}: {}", action.target_cwd, e);
+                                    }
                                 }
                             }
                         }
@@ -291,6 +325,7 @@ pub fn run() {
     env_logger::init();
 
     let sessions: SessionMap = Arc::new(Mutex::new(HashMap::new()));
+    let pipe_manager: Arc<Mutex<pipe::PipeManager>> = Arc::new(Mutex::new(pipe::PipeManager::new()));
 
     // Initial scan
     scan_all_sessions(&sessions);
@@ -298,9 +333,10 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .manage(sessions.clone())
+        .manage(pipe_manager.clone())
         .setup(move |app| {
             let handle = app.handle().clone();
-            start_watcher(handle, Arc::clone(&sessions));
+            start_watcher(handle, Arc::clone(&sessions), Arc::clone(&pipe_manager));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

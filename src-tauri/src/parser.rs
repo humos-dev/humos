@@ -191,3 +191,110 @@ fn truncate(s: &str, max: usize) -> &str {
         &s[..idx]
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Utc;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    fn recent_ts() -> String {
+        Utc::now().to_rfc3339()
+    }
+
+    fn old_ts() -> String {
+        (Utc::now() - chrono::Duration::minutes(10)).to_rfc3339()
+    }
+
+    fn write_jsonl(lines: &[&str]) -> NamedTempFile {
+        let mut f = NamedTempFile::new().unwrap();
+        for line in lines {
+            writeln!(f, "{}", line).unwrap();
+        }
+        f.flush().unwrap();
+        f
+    }
+
+    // Helper: parse file and set a fake modified_at via compute_status directly.
+    // Because file mtime is always "now" for a just-created tempfile, we test
+    // compute_status independently for old-timestamp cases.
+
+    #[test]
+    fn test_user_turn_recent_is_waiting() {
+        let ts = recent_ts();
+        let line = format!(
+            r#"{{"type":"user","cwd":"/tmp/proj","sessionId":"abc-123","timestamp":"{}","message":{{"role":"user","content":[{{"type":"text","text":"hello"}}]}}}}"#,
+            ts
+        );
+        let f = write_jsonl(&[&line]);
+        let result = parse_session_file(f.path()).unwrap();
+        assert_eq!(result.status, "waiting");
+        assert_eq!(result.cwd, "/tmp/proj");
+        assert_eq!(result.id, "abc-123");
+    }
+
+    #[test]
+    fn test_assistant_turn_recent_is_running() {
+        let ts = recent_ts();
+        let line = format!(
+            r#"{{"type":"assistant","cwd":"/tmp/proj","sessionId":"def-456","timestamp":"{}","message":{{"role":"assistant","content":[{{"type":"text","text":"I am helping"}}]}}}}"#,
+            ts
+        );
+        let f = write_jsonl(&[&line]);
+        let result = parse_session_file(f.path()).unwrap();
+        assert_eq!(result.status, "running");
+    }
+
+    #[test]
+    fn test_old_modified_at_is_idle() {
+        // compute_status directly — file mtime can't be forced to the past
+        let status = compute_status(&old_ts(), Some("assistant"));
+        assert_eq!(status, "idle");
+    }
+
+    #[test]
+    fn test_empty_file_returns_none() {
+        let f = write_jsonl(&[]);
+        let result = parse_session_file(f.path());
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_all_malformed_lines_returns_none() {
+        let f = write_jsonl(&["not json at all", "{broken", "also bad"]);
+        let result = parse_session_file(f.path());
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_no_cwd_session_id_from_filename() {
+        // No cwd in the line, but sessionId present — should use sessionId
+        let ts = recent_ts();
+        // The filename stem will be the temp file name; sessionId overrides it
+        let line = format!(
+            r#"{{"type":"user","sessionId":"override-id","timestamp":"{}","message":{{"role":"user","content":[]}}}}"#,
+            ts
+        );
+        // Provide a second line with cwd so None isn't returned
+        let cwd_line = format!(
+            r#"{{"type":"user","cwd":"/tmp/somewhere","sessionId":"override-id","timestamp":"{}","message":{{"role":"user","content":[]}}}}"#,
+            ts
+        );
+        let f = write_jsonl(&[&line, &cwd_line]);
+        let result = parse_session_file(f.path()).unwrap();
+        assert_eq!(result.id, "override-id");
+    }
+
+    #[test]
+    fn test_tool_use_increments_tool_count() {
+        let ts = recent_ts();
+        let line1 = format!(
+            r#"{{"type":"assistant","cwd":"/tmp/proj","sessionId":"tool-test","timestamp":"{}","message":{{"role":"assistant","content":[{{"type":"tool_use","name":"bash"}},{{"type":"tool_use","name":"read_file"}}]}}}}"#,
+            ts
+        );
+        let f = write_jsonl(&[&line1]);
+        let result = parse_session_file(f.path()).unwrap();
+        assert_eq!(result.tool_count, 2);
+    }
+}

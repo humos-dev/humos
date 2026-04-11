@@ -3,6 +3,10 @@ import react from "@vitejs/plugin-react";
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  test: {
+    environment: "node",
+    globals: false,
+  },
   plugins: [react()],
   // Prevent vite from obscuring Rust errors
   clearScreen: false,

@@ -110,7 +110,7 @@ export default function App() {
     <div style={styles.app}>
       <header style={styles.header}>
         <div>
-          <div style={styles.title}>Claude Control Room</div>
+          <div style={styles.title}>HumOS</div>
           <div style={styles.subtitle}>
             {loading ? "Scanning..." : `${sessions.length} session${sessions.length !== 1 ? "s" : ""} detected`}
           </div>
@@ -131,13 +131,7 @@ export default function App() {
           </div>
         ) : (
           <div style={styles.grid}>
-            {sessions
-              .sort((a, b) => {
-                // Running first, then waiting, then idle
-                const order = { running: 0, waiting: 1, idle: 2 };
-                return order[a.status] - order[b.status];
-              })
-              .map((session) => (
+            {sessions.map((session) => (
                 <SessionCard key={session.id} session={session} />
               ))}
           </div>
