@@ -346,9 +346,9 @@ export default function App() {
     return () => window.removeEventListener("resize", resize);
   }, []);
 
-  // Reload rules when pipe drawer closes so cards update their indicators.
+  // Reload rules whenever pipe drawer opens or closes.
   useEffect(() => {
-    if (!pipeOpen) loadPipeRules();
+    loadPipeRules();
   }, [pipeOpen, loadPipeRules]);
 
   // Close pipe drawer and signal bar with Escape.
@@ -610,7 +610,12 @@ export default function App() {
             className="pipe-config__overlay"
             onMouseDown={() => setPipeOpen(false)}
           />
-          <PipeConfig sessions={sessions} onClose={() => setPipeOpen(false)} />
+          <PipeConfig
+            sessions={sessions}
+            rules={pipeRules}
+            onRulesChanged={loadPipeRules}
+            onClose={() => setPipeOpen(false)}
+          />
         </>
       )}
     </div>

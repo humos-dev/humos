@@ -454,24 +454,31 @@ fn save_pipe_rules(mgr: &pipe::PipeManager) {
 /// Load persisted rules from disk and install them into the manager.
 fn load_pipe_rules(mgr: &mut pipe::PipeManager) {
     let Some(path) = pipe_rules_path() else { return };
-    let Ok(data) = fs::read_to_string(&path) else { return };
-    match serde_json::from_str::<Vec<pipe::PipeRule>>(&data) {
-        Ok(rules) => {
-            let count = rules.len();
-            for rule in rules {
-                // Update RULE_COUNTER so new rules don't collide with persisted IDs.
-                if let Some(n) = rule.id.strip_prefix("rule-").and_then(|s| s.parse::<u64>().ok()) {
-                    let current = RULE_COUNTER.load(Ordering::SeqCst);
-                    if n >= current {
-                        RULE_COUNTER.store(n + 1, Ordering::SeqCst);
-                    }
-                }
-                mgr.add_rule(rule);
-            }
-            log::info!("pipe: loaded {} persisted rules from {:?}", count, path);
+    let data = match fs::read_to_string(&path) {
+        Ok(d) => d,
+        Err(e) => {
+            log::warn!("pipe: could not read rules from {:?}: {}", path, e);
+            return;
         }
-        Err(e) => log::error!("pipe: failed to deserialize rules from {:?}: {}", path, e),
+    };
+    let rules: Vec<pipe::PipeRule> = match serde_json::from_str(&data) {
+        Ok(r) => r,
+        Err(e) => {
+            log::error!("pipe: failed to deserialize rules: {}", e);
+            return;
+        }
+    };
+    let count = rules.len();
+    for rule in rules {
+        if let Some(n) = rule.id.strip_prefix("rule-").and_then(|s| s.parse::<u64>().ok()) {
+            let current = RULE_COUNTER.load(Ordering::SeqCst);
+            if n >= current {
+                RULE_COUNTER.store(n + 1, Ordering::SeqCst);
+            }
+        }
+        mgr.add_rule(rule);
     }
+    log::info!("pipe: loaded {} persisted rules from {:?}", count, path);
 }
 
 /// Background thread: re-scan sessions modified in the last 60s and emit updates.

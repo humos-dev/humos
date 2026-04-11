@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { SessionState } from "./types";
 
@@ -15,35 +15,26 @@ interface PipeRule {
 
 interface Props {
   sessions: SessionState[];
+  rules: PipeRule[];
+  onRulesChanged: () => Promise<void>;
   onClose?: () => void;
 }
 
 function triggerLabel(rule: PipeRule): string {
+  if (typeof rule.trigger === "string") {
+    return rule.trigger === "OnIdle" ? "on idle" : `on file write`;
+  }
   if ("OnIdle" in rule.trigger) return "on idle";
-  if ("OnFileWrite" in rule.trigger) return `on file write (${rule.trigger.OnFileWrite})`;
+  if ("OnFileWrite" in rule.trigger) return `on file write (${(rule.trigger as { OnFileWrite: string }).OnFileWrite})`;
   return "unknown";
 }
 
-export function PipeConfig({ sessions, onClose }: Props) {
-  const [rules, setRules] = useState<PipeRule[]>([]);
+export function PipeConfig({ sessions, rules, onRulesChanged, onClose }: Props) {
   const [fromId, setFromId] = useState("");
   const [toId, setToId] = useState("");
   const [trigger, setTrigger] = useState<TriggerKind>("on_idle");
   const [filePattern, setFilePattern] = useState("*.json");
   const [error, setError] = useState<string | null>(null);
-
-  async function loadRules() {
-    try {
-      const result = await invoke<PipeRule[]>("list_pipe_rules");
-      setRules(result);
-    } catch (err) {
-      console.error("list_pipe_rules error:", err);
-    }
-  }
-
-  useEffect(() => {
-    loadRules();
-  }, []);
 
   async function handleAdd() {
     setError(null);
@@ -68,7 +59,7 @@ export function PipeConfig({ sessions, onClose }: Props) {
       setFromId("");
       setToId("");
       setFilePattern("*.json");
-      await loadRules();
+      await onRulesChanged();
     } catch (err) {
       setError(`Error: ${err}`);
     }
@@ -77,7 +68,7 @@ export function PipeConfig({ sessions, onClose }: Props) {
   async function handleRemove(id: string) {
     try {
       await invoke("remove_pipe_rule", { ruleId: id });
-      await loadRules();
+      await onRulesChanged();
     } catch (err) {
       console.error("remove_pipe_rule error:", err);
     }

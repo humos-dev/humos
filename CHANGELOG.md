@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.3] - 2026-04-11
+
+### Fixed
+- **pipe display fix**: `PipeConfig` no longer manages its own `rules` state — rules are lifted to `App.tsx` and passed as props. Eliminated async setState race that caused persisted rules to silently disappear from the Pipes drawer on open.
+- **pipe drawer load timing**: `pipeOpen` useEffect now calls `loadPipeRules()` unconditionally (open and close), ensuring the drawer always shows fresh data from backend.
+- **debug logging removed**: `eprintln!` debug statements removed from `pipe_rules_path`, `load_pipe_rules`, and `list_pipe_rules`. Load errors now routed through `log::warn!`/`log::error!`.
+- **load error resilience**: `load_pipe_rules` gracefully handles missing file (no error) and malformed JSON (logged error) without panic.
+
 ## [0.3.2] - 2026-04-11
 
 ### Fixed
