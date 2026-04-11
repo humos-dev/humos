@@ -8,11 +8,14 @@ interface PipeRule {
   id: string;
   from_session_id: string;
   to_session_id: string;
+  from_cwd: string;
+  to_cwd: string;
   trigger: { OnIdle: null } | { OnFileWrite: string };
 }
 
 interface Props {
   sessions: SessionState[];
+  onClose?: () => void;
 }
 
 function triggerLabel(rule: PipeRule): string {
@@ -21,7 +24,7 @@ function triggerLabel(rule: PipeRule): string {
   return "unknown";
 }
 
-export function PipeConfig({ sessions }: Props) {
+export function PipeConfig({ sessions, onClose }: Props) {
   const [rules, setRules] = useState<PipeRule[]>([]);
   const [fromId, setFromId] = useState("");
   const [toId, setToId] = useState("");
@@ -52,9 +55,13 @@ export function PipeConfig({ sessions }: Props) {
       return;
     }
     try {
+      const fromSession = sessions.find((s) => s.id === fromId);
+      const toSession = sessions.find((s) => s.id === toId);
       await invoke("add_pipe_rule", {
         fromSessionId: fromId,
         toSessionId: toId,
+        fromCwd: fromSession?.cwd ?? "",
+        toCwd: toSession?.cwd ?? "",
         trigger,
         filePattern: trigger === "on_file_write" ? filePattern.trim() : null,
       });
@@ -81,8 +88,27 @@ export function PipeConfig({ sessions }: Props) {
   }
 
   return (
-    <div className="pipe-config__drawer">
-      <div className="pipe-config__title">Pipe Rules</div>
+    <div className="pipe-config__drawer" onMouseDown={(e) => e.stopPropagation()}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div className="pipe-config__title">Pipe Rules</div>
+        {onClose && (
+          <button
+            onClick={onClose}
+            style={{
+              background: "none",
+              border: "none",
+              color: "var(--text-2)",
+              fontSize: "18px",
+              cursor: "pointer",
+              lineHeight: 1,
+              padding: "2px 4px",
+            }}
+            aria-label="Close"
+          >
+            ×
+          </button>
+        )}
+      </div>
 
       {/* Active rules */}
       <div>

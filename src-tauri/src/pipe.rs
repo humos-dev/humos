@@ -18,12 +18,22 @@ pub enum PipeTrigger {
 
 /// A rule that connects two sessions: when `from_session_id` satisfies
 /// `trigger`, inject a message into `to_session_id`'s terminal.
+///
+/// Session IDs are JSONL filenames and change every time Claude CLI restarts.
+/// `from_cwd` and `to_cwd` are stored at rule-creation time so that `evaluate`
+/// can fall back to a CWD-based lookup when the ID no longer matches any session.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PipeRule {
     pub id: String,
     pub from_session_id: String,
     pub to_session_id: String,
     pub trigger: PipeTrigger,
+    /// Working directory of the source session at rule-creation time.
+    /// Used as a stable fallback when the session ID changes.
+    pub from_cwd: String,
+    /// Working directory of the target session at rule-creation time.
+    /// Used as a stable fallback when the session ID changes.
+    pub to_cwd: String,
 }
 
 /// Snapshot of the previous session state used to detect edge transitions.
@@ -83,6 +93,10 @@ impl PipeManager {
     /// Rules fire on *transitions*, not steady state:
     /// - OnIdle: source was NOT idle last tick and IS idle now.
     /// - OnFileWrite: last_output has changed and the new value matches the glob.
+    ///
+    /// Session IDs are JSONL filenames and change on every Claude CLI restart.
+    /// `find_session` tries the stored ID first and falls back to CWD matching
+    /// so pipes survive restarts without the user re-creating rules.
     pub fn evaluate(&mut self, sessions: &SessionMap) -> Vec<PipeAction> {
         let map = match sessions.lock() {
             Ok(g) => g,
@@ -92,27 +106,45 @@ impl PipeManager {
             }
         };
 
+        /// Try the stored session ID first; fall back to matching by cwd.
+        fn find_session<'a>(
+            map: &'a HashMap<String, crate::SessionState>,
+            id: &str,
+            cwd: &str,
+        ) -> Option<&'a crate::SessionState> {
+            if let Some(s) = map.get(id) {
+                return Some(s);
+            }
+            if !cwd.is_empty() {
+                return map.values().find(|s| s.cwd == cwd);
+            }
+            None
+        }
+
         let mut actions: Vec<PipeAction> = Vec::new();
 
         for rule in &self.rules {
-            let source = match map.get(&rule.from_session_id) {
+            let source = match find_session(&map, &rule.from_session_id, &rule.from_cwd) {
                 Some(s) => s,
                 None => continue, // source session not known yet
             };
 
-            let target = match map.get(&rule.to_session_id) {
+            let target = match find_session(&map, &rule.to_session_id, &rule.to_cwd) {
                 Some(s) => s,
                 None => {
                     log::warn!(
-                        "pipe: target session {} not found, skipping rule {}",
+                        "pipe: target session {} (cwd: {}) not found, skipping rule {}",
                         rule.to_session_id,
+                        rule.to_cwd,
                         rule.id
                     );
                     continue;
                 }
             };
 
-            let prev = self.snapshots.get(&rule.from_session_id);
+            // Use CWD as the snapshot key so edge detection survives session ID churn.
+            let snapshot_key = if source.cwd.is_empty() { source.id.as_str() } else { source.cwd.as_str() };
+            let prev = self.snapshots.get(snapshot_key);
 
             let fired = match &rule.trigger {
                 PipeTrigger::OnIdle => {
@@ -161,12 +193,15 @@ impl PipeManager {
         }
 
         // Update snapshots after evaluating so the next tick sees current state.
-        // Also remove stale entries for sessions that no longer exist to prevent
-        // the snapshots map from growing unboundedly over long runtimes.
-        self.snapshots.retain(|id, _| map.contains_key(id));
-        for (id, session) in map.iter() {
+        // Key by CWD (stable) not session ID (changes on every Claude CLI restart).
+        // Prune snapshots for CWDs that are no longer present in the session map.
+        let live_cwds: std::collections::HashSet<String> =
+            map.values().map(|s| s.cwd.clone()).collect();
+        self.snapshots.retain(|key, _| live_cwds.contains(key.as_str()));
+        for session in map.values() {
+            let key = if session.cwd.is_empty() { session.id.clone() } else { session.cwd.clone() };
             self.snapshots.insert(
-                id.clone(),
+                key,
                 SessionSnapshot {
                     status: session.status.clone(),
                     last_output: session.last_output.clone(),
@@ -268,6 +303,8 @@ mod tests {
             id: "r1".to_string(),
             from_session_id: "a".to_string(),
             to_session_id: "b".to_string(),
+            from_cwd: "/tmp/a".to_string(),
+            to_cwd: "/tmp/b".to_string(),
             trigger: PipeTrigger::OnIdle,
         });
 
@@ -300,6 +337,8 @@ mod tests {
             id: "r2".to_string(),
             from_session_id: "a".to_string(),
             to_session_id: "b".to_string(),
+            from_cwd: "/tmp/a".to_string(),
+            to_cwd: "/tmp/b".to_string(),
             trigger: PipeTrigger::OnFileWrite("*.json".to_string()),
         });
 

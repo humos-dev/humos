@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.3.2] - 2026-04-11
+
+### Fixed
+- **pipe CWD fallback**: `PipeRule` now stores `from_cwd` and `to_cwd` at creation time. `evaluate` falls back to CWD matching when session IDs change (IDs are JSONL filenames — they change on every Claude CLI restart). Pipes now survive session restarts without the user needing to re-create rules.
+- **pipe snapshot stability**: Snapshots now keyed by CWD (stable) instead of session ID (unstable), so edge detection (running→idle, last_output change) is preserved across restarts.
+- **pipe periodic rescan gap**: `start_periodic_rescan` now calls `evaluate_pipes` after each rescan batch. Previously, session state updated but pipe rules were never evaluated in the rescan path — OnIdle transitions that the file watcher missed were silently dropped.
+- **pipe rule persistence**: Rules now saved to `~/.humOS/pipe-rules.json` on add/remove and loaded on startup. Rules no longer lost when the app restarts.
+- **`add_pipe_rule` command**: Now accepts optional `from_cwd`/`to_cwd` parameters; resolves them from the live session map when not provided.
+- **Frontend `PipeRule` interface**: Added `from_cwd` and `to_cwd` fields to match updated backend struct.
+
 ## [0.3.1] - 2026-04-11
 
 ### Fixed

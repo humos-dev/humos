@@ -18,12 +18,16 @@ interface PipeFiredEvent {
   from_session_id: string;
   to_session_id: string;
   message: string;
+  success: boolean;
+  error?: string;
 }
 
 interface PipeRule {
   id: string;
   from_session_id: string;
   to_session_id: string;
+  from_cwd: string;
+  to_cwd: string;
 }
 
 interface LogEntry {
@@ -282,19 +286,22 @@ export default function App() {
     let cancelAnim: (() => void) | null = null;
 
     const unlisten = listen<PipeFiredEvent>("pipe-fired", (event) => {
-      const { from_session_id, to_session_id } = event.payload;
+      const { from_session_id, to_session_id, success, error } = event.payload;
 
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const fromEl = document.querySelector<HTMLElement>(
-          `[data-session-id="${from_session_id}"]`
-        );
-        const toEl = document.querySelector<HTMLElement>(
-          `[data-session-id="${to_session_id}"]`
-        );
-        if (fromEl && toEl) {
-          cancelAnim?.();
-          cancelAnim = animatePipeLine(canvas, fromEl, toEl);
+      // Only animate the pipe line on successful injection.
+      if (success) {
+        const canvas = canvasRef.current;
+        if (canvas) {
+          const fromEl = document.querySelector<HTMLElement>(
+            `[data-session-id="${from_session_id}"]`
+          );
+          const toEl = document.querySelector<HTMLElement>(
+            `[data-session-id="${to_session_id}"]`
+          );
+          if (fromEl && toEl) {
+            cancelAnim?.();
+            cancelAnim = animatePipeLine(canvas, fromEl, toEl);
+          }
         }
       }
 
@@ -308,9 +315,12 @@ export default function App() {
         to_session_id.slice(0, 8);
 
       setLog((prev) => {
+        const text = success
+          ? `pipe fired: ${fromName} → ${toName}`
+          : `pipe failed: ${fromName} → ${toName}${error ? ` (${error.slice(0, 60)})` : ""}`;
         const entry: LogEntry = {
           id: logSeqRef.current++,
-          text: `pipe fired: ${fromName} → ${toName}`,
+          text,
           ts: now(),
         };
         return [entry, ...prev].slice(0, LOG_MAX);
@@ -598,9 +608,9 @@ export default function App() {
         <>
           <div
             className="pipe-config__overlay"
-            onClick={() => setPipeOpen(false)}
+            onMouseDown={() => setPipeOpen(false)}
           />
-          <PipeConfig sessions={sessions} />
+          <PipeConfig sessions={sessions} onClose={() => setPipeOpen(false)} />
         </>
       )}
     </div>

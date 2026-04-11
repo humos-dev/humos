@@ -192,13 +192,20 @@ fn inject_message(
 }
 
 /// Tauri command: add a pipe rule. Returns the rule id on success.
+///
+/// `from_cwd` and `to_cwd` are captured at rule-creation time so that pipe
+/// evaluation can fall back to CWD matching when session IDs change (which
+/// happens every time Claude CLI restarts — IDs are JSONL filenames).
 #[tauri::command]
 fn add_pipe_rule(
     from_session_id: String,
     to_session_id: String,
+    from_cwd: Option<String>,
+    to_cwd: Option<String>,
     trigger: String,
     file_pattern: Option<String>,
     pipe_manager: State<'_, Arc<Mutex<pipe::PipeManager>>>,
+    sessions: State<'_, SessionMap>,
 ) -> Result<String, String> {
     let trigger = match trigger.as_str() {
         "on_idle" => pipe::PipeTrigger::OnIdle,
@@ -211,17 +218,38 @@ fn add_pipe_rule(
         other => return Err(format!("unknown trigger type: {}", other)),
     };
 
+    // Resolve CWDs: caller may supply them directly, or we look them up from the session map.
+    let (resolved_from_cwd, resolved_to_cwd) = {
+        let map = sessions.lock().unwrap_or_else(|e| e.into_inner());
+        let fcwd = from_cwd.unwrap_or_default();
+        let tcwd = to_cwd.unwrap_or_default();
+        let from = if !fcwd.is_empty() {
+            fcwd
+        } else {
+            map.get(&from_session_id).map(|s| s.cwd.clone()).unwrap_or_default()
+        };
+        let to = if !tcwd.is_empty() {
+            tcwd
+        } else {
+            map.get(&to_session_id).map(|s| s.cwd.clone()).unwrap_or_default()
+        };
+        (from, to)
+    };
+
     let id = format!("rule-{}", RULE_COUNTER.fetch_add(1, Ordering::SeqCst));
 
     let rule = pipe::PipeRule {
         id: id.clone(),
         from_session_id,
         to_session_id,
+        from_cwd: resolved_from_cwd,
+        to_cwd: resolved_to_cwd,
         trigger,
     };
 
     let mut mgr = pipe_manager.lock().map_err(|e| format!("lock error: {}", e))?;
     mgr.add_rule(rule);
+    save_pipe_rules(&mgr);
     log::info!("pipe: added rule {}", id);
     Ok(id)
 }
@@ -234,6 +262,7 @@ fn remove_pipe_rule(
 ) -> Result<(), String> {
     let mut mgr = pipe_manager.lock().map_err(|e| format!("lock error: {}", e))?;
     mgr.remove_rule(&rule_id);
+    save_pipe_rules(&mgr);
     log::info!("pipe: removed rule {}", rule_id);
     Ok(())
 }
@@ -401,10 +430,54 @@ fn scan_all_sessions(sessions: &SessionMap) {
     log::info!("Initial scan complete: {} sessions loaded", map.len());
 }
 
+/// Path for persisted pipe rules: ~/.humOS/pipe-rules.json
+fn pipe_rules_path() -> Option<std::path::PathBuf> {
+    let home = dirs::home_dir()?;
+    let dir = home.join(".humOS");
+    fs::create_dir_all(&dir).ok()?;
+    Some(dir.join("pipe-rules.json"))
+}
+
+/// Persist current rules to disk. Errors are logged but not fatal.
+fn save_pipe_rules(mgr: &pipe::PipeManager) {
+    let Some(path) = pipe_rules_path() else { return };
+    match serde_json::to_string_pretty(&mgr.rules) {
+        Ok(json) => {
+            if let Err(e) = fs::write(&path, json) {
+                log::error!("pipe: failed to save rules to {:?}: {}", path, e);
+            }
+        }
+        Err(e) => log::error!("pipe: failed to serialize rules: {}", e),
+    }
+}
+
+/// Load persisted rules from disk and install them into the manager.
+fn load_pipe_rules(mgr: &mut pipe::PipeManager) {
+    let Some(path) = pipe_rules_path() else { return };
+    let Ok(data) = fs::read_to_string(&path) else { return };
+    match serde_json::from_str::<Vec<pipe::PipeRule>>(&data) {
+        Ok(rules) => {
+            let count = rules.len();
+            for rule in rules {
+                // Update RULE_COUNTER so new rules don't collide with persisted IDs.
+                if let Some(n) = rule.id.strip_prefix("rule-").and_then(|s| s.parse::<u64>().ok()) {
+                    let current = RULE_COUNTER.load(Ordering::SeqCst);
+                    if n >= current {
+                        RULE_COUNTER.store(n + 1, Ordering::SeqCst);
+                    }
+                }
+                mgr.add_rule(rule);
+            }
+            log::info!("pipe: loaded {} persisted rules from {:?}", count, path);
+        }
+        Err(e) => log::error!("pipe: failed to deserialize rules from {:?}: {}", path, e),
+    }
+}
+
 /// Background thread: re-scan sessions modified in the last 60s and emit updates.
 /// Runs every 5s to catch any files the notify watcher may have missed (large files,
 /// rapid writes, bundled-app sandbox quirks).
-fn start_periodic_rescan(app: AppHandle, sessions: SessionMap) {
+fn start_periodic_rescan(app: AppHandle, sessions: SessionMap, pipe_manager: Arc<Mutex<pipe::PipeManager>>) {
     std::thread::spawn(move || {
         loop {
             std::thread::sleep(Duration::from_secs(5));
@@ -414,6 +487,7 @@ fn start_periodic_rescan(app: AppHandle, sessions: SessionMap) {
                 .checked_sub(Duration::from_secs(60))
                 .unwrap_or(std::time::UNIX_EPOCH);
 
+            let mut any_updated = false;
             for path in files {
                 if path.extension().and_then(|e| e.to_str()) != Some("jsonl") {
                     continue;
@@ -428,6 +502,33 @@ fn start_periodic_rescan(app: AppHandle, sessions: SessionMap) {
                     map.insert(session.id.clone(), session.clone());
                     drop(map);
                     let _ = app.emit("session-updated", &session);
+                    any_updated = true;
+                }
+            }
+
+            // Evaluate pipe rules after the rescan so OnIdle transitions that
+            // the file watcher missed (e.g. large JSONL files debounced away)
+            // are still caught and dispatched.
+            if any_updated {
+                let actions = pipe::evaluate_pipes(&pipe_manager, &sessions);
+                for action in actions {
+                    let inject_result = applescript::inject_message(&action.target_cwd, &action.message);
+                    let (success, error_msg) = match &inject_result {
+                        Ok(()) => (true, None),
+                        Err(e) => {
+                            log::error!("pipe(rescan): inject failed for {}: {}", action.target_cwd, e);
+                            (false, Some(e.clone()))
+                        }
+                    };
+                    let fired_evt = PipeFired {
+                        rule_id: action.rule_id.clone(),
+                        from_session_id: action.from_session_id.clone(),
+                        to_session_id: action.to_session_id.clone(),
+                        message: action.message.clone(),
+                        success,
+                        error: error_msg,
+                    };
+                    let _ = app.emit("pipe-fired", &fired_evt);
                 }
             }
         }
@@ -536,6 +637,12 @@ pub fn run() {
     let sessions: SessionMap = Arc::new(Mutex::new(HashMap::new()));
     let pipe_manager: Arc<Mutex<pipe::PipeManager>> = Arc::new(Mutex::new(pipe::PipeManager::new()));
 
+    // Load persisted pipe rules before starting watchers.
+    {
+        let mut mgr = pipe_manager.lock().unwrap_or_else(|e| e.into_inner());
+        load_pipe_rules(&mut mgr);
+    }
+
     // Initial scan
     scan_all_sessions(&sessions);
 
@@ -546,7 +653,7 @@ pub fn run() {
         .setup(move |app| {
             let handle = app.handle().clone();
             start_watcher(handle.clone(), Arc::clone(&sessions), Arc::clone(&pipe_manager));
-            start_periodic_rescan(handle, Arc::clone(&sessions));
+            start_periodic_rescan(handle, Arc::clone(&sessions), Arc::clone(&pipe_manager));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -591,12 +698,16 @@ mod tests {
             id: id_a.clone(),
             from_session_id: "s1".into(),
             to_session_id: "s2".into(),
+            from_cwd: "/tmp/s1".into(),
+            to_cwd: "/tmp/s2".into(),
             trigger: PipeTrigger::OnIdle,
         });
         mgr.add_rule(PipeRule {
             id: id_b.clone(),
             from_session_id: "s1".into(), // same pair
             to_session_id: "s2".into(),
+            from_cwd: "/tmp/s1".into(),
+            to_cwd: "/tmp/s2".into(),
             trigger: PipeTrigger::OnFileWrite("*.json".into()),
         });
         assert_eq!(mgr.rules.len(), 2, "two rules on same pair must both be stored");
@@ -610,6 +721,8 @@ mod tests {
             id: id.clone(),
             from_session_id: "a".into(),
             to_session_id: "b".into(),
+            from_cwd: "/tmp/a".into(),
+            to_cwd: "/tmp/b".into(),
             trigger: PipeTrigger::OnIdle,
         });
         assert_eq!(mgr.rules.len(), 1);
@@ -632,12 +745,16 @@ mod tests {
             id: "r-list-1".into(),
             from_session_id: "x".into(),
             to_session_id: "y".into(),
+            from_cwd: "/tmp/x".into(),
+            to_cwd: "/tmp/y".into(),
             trigger: PipeTrigger::OnIdle,
         });
         mgr.add_rule(PipeRule {
             id: "r-list-2".into(),
             from_session_id: "x".into(),
             to_session_id: "z".into(),
+            from_cwd: "/tmp/x".into(),
+            to_cwd: "/tmp/z".into(),
             trigger: PipeTrigger::OnFileWrite("*.ts".into()),
         });
         assert_eq!(mgr.rules.len(), 2);
