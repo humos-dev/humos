@@ -108,14 +108,14 @@ That's the moment you know it's real. Write it as a concrete milestone, not a va
 
 ## Naming Decision (Apr 11)
 
-**Product name: HumOS**
+**Product name: humOS**
 **Domain: humos.dev** (available, all variants clean)
 
 Rationale: Sessions humming in the background while you do something else.
 The human goes quiet. The work runs. OS signals infrastructure not a dashboard.
 "Open" prefix dropped — GitHub presence signals open source without needing it in the name.
 
-Competitors checked: Conductor (YC, $22M), opcode, claude-control — none use HumOS.
+Competitors checked: Conductor (YC, $22M), opcode, claude-control — none use humOS.
 Full domain sweep clean: humos.dev, humos.sh, humos.so, humos.build all available.
 
 Action items before v1.0:
@@ -124,3 +124,81 @@ Action items before v1.0:
 - Update app title in tauri.conf.json
 - Update README and CLAUDE.md
 - Design a mark that works as a menu bar icon (simple, monochrome)
+
+---
+
+## Items from /plan-eng-review (Apr 11)
+
+### Rule Persistence
+**What:** Persist pipe rules to ~/.humos/pipes.json, reload on app startup.
+**Why:** Currently in-memory only — rules are lost on every restart.
+**How:** Serialize PipeManager.rules on every add/remove. Load on run().
+**Effort:** S | **Priority:** P2 | **Target:** v0.3
+
+### Terminal Emulator Support for inject_message
+**What:** Detect terminal emulator (Terminal.app vs iTerm2 vs Warp vs Ghostty) and dispatch correct injection method.
+**Why:** `do script` is Terminal.app-only. Other emulators will fail silently.
+**How:** Check running process list, use iTerm2 AppleScript API for iTerm2, etc.
+**Depends on:** inject_message rewrite (Issue 2A from eng review)
+**Effort:** M | **Priority:** P1 (before v1.0 distribution)
+
+### Startup Scan Performance
+**What:** Add recency filter or file count cap to walkdir_recursive on startup.
+**Why:** Users with 6+ months of Claude sessions may have thousands of JSONL files — slow cold start.
+**How:** Skip files with mtime > 30 days. Or limit to files modified in last 7 days.
+**Effort:** S | **Priority:** P2 | **Target:** v0.3
+
+---
+
+## Agent Agnosticism — Multi-Agent Platform Vision
+
+**Decision recorded:** humOS is NOT a Claude Code tool. It is an AI agent coordination OS.
+
+Claude Code is the first supported agent because it writes structured JSONL to `~/.claude/projects/`. That was a convenient entry point. But the platform must support any coding agent that runs in a terminal, IDE, or CLI.
+
+### Agents to support
+
+| Agent | Session source | Detection method |
+|-------|---------------|-----------------|
+| Claude Code | `~/.claude/projects/*.jsonl` | Current (done) |
+| Cursor | Process + workspace file | Watch `.cursor/` workspace state |
+| Copilot (GitHub) | VS Code extension logs | Watch VS Code extension host logs |
+| Aider | Terminal stdout | tmux pane watcher + stdout parser |
+| Codex CLI | Process detection | Watch `~/.codex/` or stdout |
+| Cline / Continue | VS Code extension | Extension state files |
+| Devin / SWE agents | API/webhook | Webhook receiver, poll API |
+| Custom agents | Stdin/stdout protocol | humOS agent SDK (see below) |
+
+### humOS Agent SDK (Primitive 0)
+
+Any agent that wants first-class support writes a `.jsonl` line to:
+```
+~/.humOS/sessions/<agent-name>/<session-id>.jsonl
+```
+
+Line format (minimal, agent-agnostic):
+```json
+{"type": "status", "sessionId": "...", "cwd": "...", "agent": "aider", "status": "running", "message": "...", "timestamp": "..."}
+```
+
+humOS watches `~/.humOS/sessions/` in addition to `~/.claude/projects/`. Any agent that emits this format gets a session card automatically. First-class pipe(), signal(), join() support included.
+
+### Parser abstraction
+
+Current `parser.rs` is Claude-specific. Refactor plan:
+- `trait AgentParser { fn parse(path: &Path) -> Option<SessionState>; }`
+- `ClaudeParser` — current JSONL format
+- `HumOSParser` — generic SDK format (above)
+- `AiderParser` — stdout line parser (future)
+- Registry: match path pattern → use correct parser
+
+### UI
+
+- Session card gains `agent` badge (e.g. `claude`, `aider`, `cursor`) with agent-specific icon
+- Filter bar: "All agents | Claude | Cursor | Aider | ..."
+- Settings: toggle which agent directories to watch
+
+### Priority
+
+P1 — this is the moat. No other tool (Conductor, opcode, claude-control) is agent-agnostic.
+Being Claude-only is a ceiling. Being the coordination layer for ALL local agents is the 10x position.

@@ -2,9 +2,10 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use glob::Pattern;
+use serde::{Deserialize, Serialize};
 
 /// Trigger condition for a pipe rule.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PipeTrigger {
     /// Fire when the source session transitions to "idle".
     OnIdle,
@@ -17,7 +18,7 @@ pub enum PipeTrigger {
 
 /// A rule that connects two sessions: when `from_session_id` satisfies
 /// `trigger`, inject a message into `to_session_id`'s terminal.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PipeRule {
     pub id: String,
     pub from_session_id: String,
@@ -44,6 +45,9 @@ pub struct PipeManager {
 /// A pending injection produced when a rule fires.
 #[derive(Debug)]
 pub struct PipeAction {
+    pub rule_id: String,
+    pub from_session_id: String,
+    pub to_session_id: String,
     /// cwd of the target session (used by applescript::inject_message).
     pub target_cwd: String,
     /// The message to inject into the target terminal.
@@ -112,15 +116,18 @@ impl PipeManager {
 
             let fired = match &rule.trigger {
                 PipeTrigger::OnIdle => {
-                    let was_idle = prev.map(|s| s.status == "idle").unwrap_or(false);
+                    // Treat "no prior snapshot" as was_idle=true so we don't
+                    // false-fire on the first evaluation tick for already-idle sessions.
+                    let was_idle = prev.map(|s| s.status == "idle").unwrap_or(true);
                     !was_idle && source.status == "idle"
                 }
 
                 PipeTrigger::OnFileWrite(pattern) => {
                     // Only fire when last_output has changed.
+                    // Default to false (not changed) on first tick to avoid startup false-fire.
                     let output_changed = prev
                         .map(|s| s.last_output != source.last_output)
-                        .unwrap_or(true);
+                        .unwrap_or(false);
 
                     if output_changed && !source.last_output.is_empty() {
                         matches_glob(pattern, &source.last_output)
@@ -139,6 +146,9 @@ impl PipeManager {
                     target.cwd
                 );
                 actions.push(PipeAction {
+                    rule_id: rule.id.clone(),
+                    from_session_id: rule.from_session_id.clone(),
+                    to_session_id: rule.to_session_id.clone(),
                     target_cwd: target.cwd.clone(),
                     message,
                 });
@@ -146,6 +156,9 @@ impl PipeManager {
         }
 
         // Update snapshots after evaluating so the next tick sees current state.
+        // Also remove stale entries for sessions that no longer exist to prevent
+        // the snapshots map from growing unboundedly over long runtimes.
+        self.snapshots.retain(|id, _| map.contains_key(id));
         for (id, session) in map.iter() {
             self.snapshots.insert(
                 id.clone(),
@@ -285,19 +298,27 @@ mod tests {
             trigger: PipeTrigger::OnFileWrite("*.json".to_string()),
         });
 
-        // Tick 1: last_output contains a .json path → fires on first observation
+        // Tick 1: first observation — does NOT fire (no prior snapshot to detect change from).
         let map = make_map(vec![
             make_session("a", "running", "Running: write_file schema.json"),
             make_session("b", "idle", ""),
         ]);
         let actions = mgr.evaluate(&map);
-        assert_eq!(actions.len(), 1);
+        assert!(actions.is_empty(), "should not fire on first tick (no prior state)");
 
-        // Tick 2: same last_output, no change → does not re-fire
+        // Tick 2: same last_output, still no change → does not fire
         let actions = mgr.evaluate(&map);
         assert!(actions.is_empty());
 
-        // Tick 3: different non-matching output → does not fire
+        // Tick 3 (new output): different matching output → fires as a real new write
+        let map = make_map(vec![
+            make_session("a", "running", "Running: write_file output.json"),
+            make_session("b", "idle", ""),
+        ]);
+        let actions = mgr.evaluate(&map);
+        assert_eq!(actions.len(), 1, "should fire when output genuinely changes to a match");
+
+        // Tick 4: different non-matching output → does not fire
         let map = make_map(vec![
             make_session("a", "running", "Running: read_file README.md"),
             make_session("b", "idle", ""),

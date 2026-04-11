@@ -1,3 +1,14 @@
+/* ── Design tokens ───────────────────────────────────────────── */
+:root {
+  --bg:          #080808;
+  --surface:     #111111;
+  --border:      #1f1f1f;
+  --text:        #e8e8e8;
+  --text-2:      #888888;
+  --signal:      #3ecf8e;
+}
+
+/* ── Reset ───────────────────────────────────────────────────── */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -5,9 +16,9 @@
 }
 
 body {
-  background: #0a0a0a;
-  color: #e0e0e0;
-  font-family: "JetBrains Mono", "Cascadia Code", "Fira Code", "Menlo", "Courier New", monospace;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
 }
@@ -16,15 +27,288 @@ body {
   min-height: 100vh;
 }
 
+/* ── Focus ring (keyboard navigation) ───────────────────────── */
+:focus-visible {
+  outline: 2px solid #4ade80;
+  outline-offset: 2px;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #111;
+  background: var(--surface);
 }
 
 ::-webkit-scrollbar-thumb {
   background: #333;
   border-radius: 3px;
+}
+
+/* ── Animations ──────────────────────────────────────────────── */
+@keyframes breathe {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.75); }
+}
+
+@keyframes waveform-bar {
+  0%, 100% { transform: scaleY(0.3); }
+  50%       { transform: scaleY(1); }
+}
+
+/* ── Session card ────────────────────────────────────────────── */
+.session-card {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: border-color 0.15s;
+}
+
+.session-card--running {
+  border-color: color-mix(in srgb, var(--signal) 30%, var(--border));
+}
+
+.session-card__actions {
+  display: flex;
+  gap: 8px;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.1s ease-out, transform 0.1s ease-out;
+  pointer-events: none;
+}
+
+.session-card:hover .session-card__actions,
+.session-card--send-open .session-card__actions {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.session-card__dot--running {
+  animation: breathe 1.6s ease-in-out infinite;
+}
+
+/* ── Activity log ────────────────────────────────────────────── */
+.activity-log {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 28px;
+  background: #0c0c0c;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+  font-size: 10px;
+  color: var(--text-2);
+  z-index: 10;
+  overflow: hidden;
+}
+
+.activity-log__entry {
+  white-space: nowrap;
+  animation: fadeIn 0.3s ease;
+}
+
+.activity-log__signal {
+  color: var(--signal);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ── Waveform header mark ────────────────────────────────────── */
+.waveform {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 14px;
+}
+
+.waveform__bar {
+  width: 2px;
+  height: 100%;
+  background: var(--signal);
+  border-radius: 1px;
+  transform-origin: bottom;
+  transform: scaleY(0.3);
+}
+
+.waveform--active .waveform__bar:nth-child(1) { animation: waveform-bar 0.9s ease-in-out infinite 0.0s; }
+.waveform--active .waveform__bar:nth-child(2) { animation: waveform-bar 0.9s ease-in-out infinite 0.15s; }
+.waveform--active .waveform__bar:nth-child(3) { animation: waveform-bar 0.9s ease-in-out infinite 0.3s; }
+
+/* ── Pipe fire canvas ────────────────────────────────────────── */
+.pipe-fire-canvas {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+}
+
+/* ── Pipe config drawer ──────────────────────────────────────── */
+.pipe-config__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 100;
+}
+
+.pipe-config__drawer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-radius: 12px 12px 0 0;
+  padding: 24px;
+  z-index: 101;
+  max-height: 60vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.pipe-config__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.pipe-config__form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pipe-config__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pipe-config__label {
+  font-size: 11px;
+  color: var(--text-2);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  min-width: 60px;
+}
+
+.pipe-config__select,
+.pipe-config__input {
+  flex: 1;
+  min-width: 120px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.pipe-config__select:focus,
+.pipe-config__input:focus {
+  border-color: var(--signal);
+}
+
+.pipe-config__add-btn {
+  align-self: flex-start;
+  padding: 7px 16px;
+  font-size: 12px;
+  font-family: inherit;
+  background: color-mix(in srgb, var(--signal) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--signal) 40%, transparent);
+  border-radius: 4px;
+  color: var(--signal);
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: background 0.15s;
+}
+
+.pipe-config__add-btn:hover {
+  background: color-mix(in srgb, var(--signal) 25%, transparent);
+}
+
+.pipe-config__add-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pipe-config__rules-title {
+  font-size: 11px;
+  color: var(--text-2);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.pipe-config__rules-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pipe-config__rule-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.pipe-config__rule-desc {
+  font-size: 12px;
+  color: var(--text);
+  flex: 1;
+}
+
+.pipe-config__remove-btn {
+  padding: 3px 10px;
+  font-size: 11px;
+  font-family: inherit;
+  background: none;
+  border: 1px solid #3a1a1a;
+  border-radius: 4px;
+  color: #f87171;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.pipe-config__remove-btn:hover {
+  background: #2a0a0a;
+}
+
+.pipe-config__empty {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.pipe-config__error {
+  font-size: 11px;
+  color: #f87171;
 }

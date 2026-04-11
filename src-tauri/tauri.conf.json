@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "HumOS",
+  "productName": "humOS",
   "version": "0.1.0",
   "identifier": "dev.humos.app",
   "build": {
@@ -13,7 +13,7 @@
     "withGlobalTauri": false,
     "windows": [
       {
-        "title": "HumOS",
+        "title": "humOS",
         "width": 1200,
         "height": 800,
         "minWidth": 800,

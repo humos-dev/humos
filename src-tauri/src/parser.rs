@@ -134,7 +134,16 @@ pub fn parse_session_file(path: &Path) -> Option<SessionState> {
             .unwrap_or_else(|| cwd.clone())
     };
 
-    let status = compute_status(&modified_at, last_role.as_deref());
+    // Compute file age for the status gate.
+    let modified_age_secs = path
+        .metadata()
+        .ok()
+        .and_then(|m| m.modified().ok())
+        .and_then(|mtime| mtime.elapsed().ok())
+        .map(|d| d.as_secs())
+        .unwrap_or(u64::MAX);
+
+    let status = compute_status(last_role.as_deref(), modified_age_secs);
 
     Some(SessionState {
         id: session_id,
@@ -148,30 +157,17 @@ pub fn parse_session_file(path: &Path) -> Option<SessionState> {
     })
 }
 
-fn compute_status(modified_at: &str, last_role: Option<&str>) -> String {
-    let age_secs = modified_at_age_secs(modified_at);
-    if age_secs < 300 {
-        match last_role {
-            Some("assistant") => "running".to_string(),
-            Some("user") => "waiting".to_string(),
-            _ => "idle".to_string(),
-        }
-    } else {
-        "idle".to_string()
-    }
-}
-
-fn modified_at_age_secs(ts: &str) -> u64 {
-    if ts.is_empty() {
-        return u64::MAX;
-    }
-    let parsed = ts.parse::<DateTime<Utc>>().ok();
-    match parsed {
-        Some(dt) => {
-            let now = Utc::now();
-            (now - dt).num_seconds().max(0) as u64
-        }
-        None => u64::MAX,
+/// Derive session status from the last message role and file age.
+///
+/// A session whose last turn was "assistant" is only "running" if the file was
+/// modified recently (within 5 minutes). Older sessions are "idle" — Claude
+/// doesn't silently run for hours without writing to its JSONL file.
+fn compute_status(last_role: Option<&str>, modified_age_secs: u64) -> String {
+    match last_role {
+        Some("assistant") if modified_age_secs < 300 => "running".to_string(),
+        Some("assistant") => "idle".to_string(),
+        Some("user") => "waiting".to_string(),
+        _ => "idle".to_string(),
     }
 }
 
@@ -247,10 +243,16 @@ mod tests {
     }
 
     #[test]
-    fn test_old_modified_at_is_idle() {
-        // compute_status directly — file mtime can't be forced to the past
-        let status = compute_status(&old_ts(), Some("assistant"));
-        assert_eq!(status, "idle");
+    fn test_status_uses_mtime_gate() {
+        // Recent assistant turn → running
+        assert_eq!(compute_status(Some("assistant"), 10), "running");
+        // Old assistant turn (>5 min) → idle (session finished)
+        assert_eq!(compute_status(Some("assistant"), 600), "idle");
+        // User turn always waiting regardless of age
+        assert_eq!(compute_status(Some("user"), 0), "waiting");
+        assert_eq!(compute_status(Some("user"), 9999), "waiting");
+        // No role → idle
+        assert_eq!(compute_status(None, 0), "idle");
     }
 
     #[test]

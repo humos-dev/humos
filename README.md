@@ -1,4 +1,4 @@
-# HumOS
+# humOS
 
 A native macOS app that monitors all active Claude CLI sessions in real time.
 
@@ -8,7 +8,7 @@ The name comes from the idea of sessions humming in the background while you wor
 
 ## What it is
 
-HumOS shows you every Claude CLI session running on your machine: what project it is in, what directory it is working in, whether it is actively calling tools, waiting for input, or idle, how many tools it has called, and what it last output.
+humOS shows you every Claude CLI session running on your machine: what project it is in, what directory it is working in, whether it is actively calling tools, waiting for input, or idle, how many tools it has called, and what it last output.
 
 You can bring any session's terminal window to front, inject a message into it, or get a two-sentence summary of what it has been doing.
 
@@ -20,7 +20,7 @@ Claude CLI sessions run in terminal windows. When you have more than one going, 
 
 Unix solved this for processes decades ago with fork, pipe, signal, and join. Nothing equivalent exists for AI agents at the local machine level.
 
-HumOS starts as a session monitor. The v2.0 north star is to become that coordination layer: a set of primitives for orchestrating AI agents running locally, the same way Unix gave primitives for orchestrating processes.
+humOS starts as a session monitor. The v2.0 north star is to become that coordination layer: a set of primitives for orchestrating AI agents running locally, the same way Unix gave primitives for orchestrating processes.
 
 ---
 
@@ -42,7 +42,7 @@ HumOS starts as a session monitor. The v2.0 north star is to become that coordin
 - `signal()` -- broadcast a message to all running sessions simultaneously
 - `join()` -- wait for multiple sessions to complete, then aggregate their outputs
 - **Orchestrator session** -- a Claude session that monitors and coordinates other sessions autonomously
-- **Task compiler / DAG executor** -- describe a goal, HumOS decomposes it into parallel sub-sessions and manages execution
+- **Task compiler / DAG executor** -- describe a goal, humOS decomposes it into parallel sub-sessions and manages execution
 
 ---
 

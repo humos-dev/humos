@@ -5,8 +5,12 @@ pub mod pipe;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+
+/// Global counter for unique rule IDs. Monotonically increasing, process-lifetime.
+static RULE_COUNTER: AtomicU64 = AtomicU64::new(1);
 
 use notify_debouncer_mini::{new_debouncer, notify::RecursiveMode, DebounceEventResult};
 use serde::{Deserialize, Serialize};
@@ -14,6 +18,23 @@ use tauri::{AppHandle, Emitter, State};
 
 /// The shared session state, keyed by session id.
 type SessionMap = Arc<Mutex<HashMap<String, SessionState>>>;
+
+/// Emitted on every status change (running → idle, etc.).
+#[derive(serde::Serialize, Clone)]
+struct SessionTransitioned {
+    session_id: String,
+    from_status: String,
+    to_status: String,
+}
+
+/// Emitted when a pipe rule fires and a message is about to be injected.
+#[derive(serde::Serialize, Clone)]
+struct PipeFired {
+    rule_id: String,
+    from_session_id: String,
+    to_session_id: String,
+    message: String,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionState {
@@ -30,7 +51,7 @@ pub struct SessionState {
 /// Tauri command: return all known sessions as a sorted Vec.
 #[tauri::command]
 fn get_sessions(state: State<'_, SessionMap>) -> Vec<SessionState> {
-    let map = state.lock().unwrap();
+    let map = state.lock().unwrap_or_else(|e| e.into_inner());
     let mut sessions: Vec<SessionState> = map.values().cloned().collect();
     // Sort: running first, waiting second, idle last; then by modified_at desc
     sessions.sort_by(|a, b| {
@@ -53,7 +74,7 @@ fn status_order(s: &str) -> u8 {
 #[tauri::command]
 fn focus_session(session_id: String, state: State<'_, SessionMap>) -> Result<(), String> {
     let cwd = {
-        let map = state.lock().unwrap();
+        let map = state.lock().unwrap_or_else(|e| e.into_inner());
         map.get(&session_id).map(|s| s.cwd.clone())
     };
 
@@ -71,7 +92,7 @@ fn inject_message(
     state: State<'_, SessionMap>,
 ) -> Result<(), String> {
     let cwd = {
-        let map = state.lock().unwrap();
+        let map = state.lock().unwrap_or_else(|e| e.into_inner());
         map.get(&session_id).map(|s| s.cwd.clone())
     };
 
@@ -79,6 +100,62 @@ fn inject_message(
         Some(cwd) if !cwd.is_empty() => applescript::inject_message(&cwd, &message),
         _ => Err(format!("Session {} not found or has no cwd", session_id)),
     }
+}
+
+/// Tauri command: add a pipe rule. Returns the rule id on success.
+#[tauri::command]
+fn add_pipe_rule(
+    from_session_id: String,
+    to_session_id: String,
+    trigger: String,
+    file_pattern: Option<String>,
+    pipe_manager: State<'_, Arc<Mutex<pipe::PipeManager>>>,
+) -> Result<String, String> {
+    let trigger = match trigger.as_str() {
+        "on_idle" => pipe::PipeTrigger::OnIdle,
+        "on_file_write" => {
+            let pattern = file_pattern
+                .filter(|p| !p.is_empty())
+                .ok_or_else(|| "file_pattern is required for on_file_write trigger".to_string())?;
+            pipe::PipeTrigger::OnFileWrite(pattern)
+        }
+        other => return Err(format!("unknown trigger type: {}", other)),
+    };
+
+    let id = format!("rule-{}", RULE_COUNTER.fetch_add(1, Ordering::SeqCst));
+
+    let rule = pipe::PipeRule {
+        id: id.clone(),
+        from_session_id,
+        to_session_id,
+        trigger,
+    };
+
+    let mut mgr = pipe_manager.lock().map_err(|e| format!("lock error: {}", e))?;
+    mgr.add_rule(rule);
+    log::info!("pipe: added rule {}", id);
+    Ok(id)
+}
+
+/// Tauri command: remove a pipe rule by id.
+#[tauri::command]
+fn remove_pipe_rule(
+    rule_id: String,
+    pipe_manager: State<'_, Arc<Mutex<pipe::PipeManager>>>,
+) -> Result<(), String> {
+    let mut mgr = pipe_manager.lock().map_err(|e| format!("lock error: {}", e))?;
+    mgr.remove_rule(&rule_id);
+    log::info!("pipe: removed rule {}", rule_id);
+    Ok(())
+}
+
+/// Tauri command: list all active pipe rules.
+#[tauri::command]
+fn list_pipe_rules(
+    pipe_manager: State<'_, Arc<Mutex<pipe::PipeManager>>>,
+) -> Result<Vec<pipe::PipeRule>, String> {
+    let mgr = pipe_manager.lock().map_err(|e| format!("lock error: {}", e))?;
+    Ok(mgr.rules.clone())
 }
 
 /// Tauri command: summarize a session in plain English using Claude Haiku.
@@ -223,7 +300,7 @@ fn scan_all_sessions(sessions: &SessionMap) {
     };
 
     let files = walkdir_recursive(&projects_dir);
-    let mut map = sessions.lock().unwrap();
+    let mut map = sessions.lock().unwrap_or_else(|e| e.into_inner());
     for path in files {
         if path.extension().and_then(|e| e.to_str()) != Some("jsonl") {
             continue;
@@ -233,6 +310,39 @@ fn scan_all_sessions(sessions: &SessionMap) {
         }
     }
     log::info!("Initial scan complete: {} sessions loaded", map.len());
+}
+
+/// Background thread: re-scan sessions modified in the last 60s and emit updates.
+/// Runs every 5s to catch any files the notify watcher may have missed (large files,
+/// rapid writes, bundled-app sandbox quirks).
+fn start_periodic_rescan(app: AppHandle, sessions: SessionMap) {
+    std::thread::spawn(move || {
+        loop {
+            std::thread::sleep(Duration::from_secs(5));
+            let Some(projects_dir) = claude_projects_dir() else { continue };
+            let files = walkdir_recursive(&projects_dir);
+            let cutoff = std::time::SystemTime::now()
+                .checked_sub(Duration::from_secs(60))
+                .unwrap_or(std::time::UNIX_EPOCH);
+
+            for path in files {
+                if path.extension().and_then(|e| e.to_str()) != Some("jsonl") {
+                    continue;
+                }
+                // Only reparse recently-modified files to keep CPU low.
+                let mtime = path.metadata().ok().and_then(|m| m.modified().ok());
+                if mtime.map(|m| m < cutoff).unwrap_or(true) {
+                    continue;
+                }
+                if let Some(session) = parser::parse_session_file(&path) {
+                    let mut map = sessions.lock().unwrap_or_else(|e| e.into_inner());
+                    map.insert(session.id.clone(), session.clone());
+                    drop(map);
+                    let _ = app.emit("session-updated", &session);
+                }
+            }
+        }
+    });
 }
 
 /// Start the notify file watcher in a background thread.
@@ -264,7 +374,7 @@ fn start_watcher(
                             if let Some(session) = parser::parse_session_file(path) {
                                 let id = session.id.clone();
                                 let old_state = {
-                                    let mut map = sessions_clone.lock().unwrap();
+                                    let mut map = sessions_clone.lock().unwrap_or_else(|e| e.into_inner());
                                     let old = map.get(&id).cloned();
                                     map.insert(id.clone(), session.clone());
                                     old
@@ -274,13 +384,7 @@ fn start_watcher(
                                 }
                                 if let Some(old) = old_state {
                                     if old.status != session.status {
-                                        #[derive(serde::Serialize, Clone)]
-                                        struct Transition {
-                                            session_id: String,
-                                            from_status: String,
-                                            to_status: String,
-                                        }
-                                        let transition = Transition {
+                                        let transition = SessionTransitioned {
                                             session_id: id.clone(),
                                             from_status: old.status.clone(),
                                             to_status: session.status.clone(),
@@ -293,6 +397,16 @@ fn start_watcher(
                                 // Evaluate pipe rules and fire any triggered actions.
                                 let actions = pipe::evaluate_pipes(&pipe_manager_clone, &sessions_clone);
                                 for action in actions {
+                                    // Emit pipe-fired before injecting so the UI can animate.
+                                    let fired_evt = PipeFired {
+                                        rule_id: action.rule_id.clone(),
+                                        from_session_id: action.from_session_id.clone(),
+                                        to_session_id: action.to_session_id.clone(),
+                                        message: action.message.clone(),
+                                    };
+                                    if let Err(e) = app_clone.emit("pipe-fired", &fired_evt) {
+                                        log::error!("emit pipe-fired error: {}", e);
+                                    }
                                     if let Err(e) = applescript::inject_message(&action.target_cwd, &action.message) {
                                         log::error!("pipe: inject failed for {}: {}", action.target_cwd, e);
                                     }
@@ -336,7 +450,8 @@ pub fn run() {
         .manage(pipe_manager.clone())
         .setup(move |app| {
             let handle = app.handle().clone();
-            start_watcher(handle, Arc::clone(&sessions), Arc::clone(&pipe_manager));
+            start_watcher(handle.clone(), Arc::clone(&sessions), Arc::clone(&pipe_manager));
+            start_periodic_rescan(handle, Arc::clone(&sessions));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -344,7 +459,94 @@ pub fn run() {
             focus_session,
             inject_message,
             summarize_session,
+            add_pipe_rule,
+            remove_pipe_rule,
+            list_pipe_rules,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pipe::{PipeManager, PipeRule, PipeTrigger};
+
+    fn make_manager() -> PipeManager {
+        PipeManager::new()
+    }
+
+    #[test]
+    fn rule_ids_are_unique() {
+        let mut mgr = make_manager();
+        // Reset counter to a known state isn't possible (static), but two
+        // successive adds must produce different IDs.
+        let id_a = {
+            let n = RULE_COUNTER.fetch_add(1, Ordering::SeqCst);
+            format!("rule-{}", n)
+        };
+        let id_b = {
+            let n = RULE_COUNTER.fetch_add(1, Ordering::SeqCst);
+            format!("rule-{}", n)
+        };
+        assert_ne!(id_a, id_b, "sequential rule IDs must be unique");
+
+        mgr.add_rule(PipeRule {
+            id: id_a.clone(),
+            from_session_id: "s1".into(),
+            to_session_id: "s2".into(),
+            trigger: PipeTrigger::OnIdle,
+        });
+        mgr.add_rule(PipeRule {
+            id: id_b.clone(),
+            from_session_id: "s1".into(), // same pair
+            to_session_id: "s2".into(),
+            trigger: PipeTrigger::OnFileWrite("*.json".into()),
+        });
+        assert_eq!(mgr.rules.len(), 2, "two rules on same pair must both be stored");
+    }
+
+    #[test]
+    fn add_and_remove_rule() {
+        let mut mgr = make_manager();
+        let id = "rule-test-remove".to_string();
+        mgr.add_rule(PipeRule {
+            id: id.clone(),
+            from_session_id: "a".into(),
+            to_session_id: "b".into(),
+            trigger: PipeTrigger::OnIdle,
+        });
+        assert_eq!(mgr.rules.len(), 1);
+        mgr.remove_rule(&id);
+        assert!(mgr.rules.is_empty(), "rule must be removed by id");
+    }
+
+    #[test]
+    fn remove_nonexistent_rule_is_noop() {
+        let mut mgr = make_manager();
+        mgr.remove_rule("does-not-exist"); // must not panic
+        assert!(mgr.rules.is_empty());
+    }
+
+    #[test]
+    fn list_rules_reflects_current_state() {
+        let mut mgr = make_manager();
+        assert!(mgr.rules.is_empty());
+        mgr.add_rule(PipeRule {
+            id: "r-list-1".into(),
+            from_session_id: "x".into(),
+            to_session_id: "y".into(),
+            trigger: PipeTrigger::OnIdle,
+        });
+        mgr.add_rule(PipeRule {
+            id: "r-list-2".into(),
+            from_session_id: "x".into(),
+            to_session_id: "z".into(),
+            trigger: PipeTrigger::OnFileWrite("*.ts".into()),
+        });
+        assert_eq!(mgr.rules.len(), 2);
+        mgr.remove_rule("r-list-1");
+        assert_eq!(mgr.rules.len(), 1);
+        assert_eq!(mgr.rules[0].id, "r-list-2");
+    }
 }

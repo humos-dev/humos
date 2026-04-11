@@ -5,25 +5,17 @@ import { formatDateTime } from "./utils/formatDateTime";
 
 interface Props {
   session: SessionState;
+  isSource?: boolean;
+  isTarget?: boolean;
 }
 
 const STATUS_DOT: Record<SessionStatus, { color: string; label: string }> = {
-  running: { color: "#22c55e", label: "running" },
+  running: { color: "#3ecf8e", label: "running" },
   waiting: { color: "#eab308", label: "waiting" },
-  idle:    { color: "#444",    label: "idle" },
+  idle:    { color: "#555",    label: "idle" },
 };
 
 const styles: Record<string, React.CSSProperties> = {
-  card: {
-    background: "#111",
-    border: "1px solid #1e1e1e",
-    borderRadius: "8px",
-    padding: "16px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "12px",
-    transition: "border-color 0.15s",
-  },
   cardHeader: {
     display: "flex",
     alignItems: "flex-start",
@@ -33,14 +25,14 @@ const styles: Record<string, React.CSSProperties> = {
   projectName: {
     fontWeight: 700,
     fontSize: "13px",
-    color: "#fff",
+    color: "var(--text)",
     letterSpacing: "0.02em",
     lineHeight: 1.3,
     wordBreak: "break-all",
   },
   cwd: {
     fontSize: "10px",
-    color: "#444",
+    color: "#666",
     marginTop: "3px",
     wordBreak: "break-all",
   },
@@ -57,7 +49,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   statusLabel: {
     fontSize: "11px",
-    color: "#999",
+    color: "var(--text-2)",
     textTransform: "uppercase",
     letterSpacing: "0.08em",
   },
@@ -68,7 +60,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "4px",
     padding: "2px 8px",
     fontSize: "10px",
-    color: "#888",
+    color: "var(--text-2)",
   },
   lastOutput: {
     fontSize: "11px",
@@ -81,10 +73,6 @@ const styles: Record<string, React.CSSProperties> = {
     minHeight: "36px",
     wordBreak: "break-word",
     whiteSpace: "pre-wrap",
-  },
-  actions: {
-    display: "flex",
-    gap: "8px",
   },
   btn: {
     flex: 1,
@@ -112,7 +100,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: "#0d0d0d",
     border: "1px solid #2a4a2a",
     borderRadius: "4px",
-    color: "#e0e0e0",
+    color: "var(--text)",
     outline: "none",
     marginTop: "-4px",
   },
@@ -131,7 +119,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   summaryTitle: {
     fontSize: "10px",
-    color: "#555",
+    color: "var(--text-2)",
     textTransform: "uppercase",
     letterSpacing: "0.08em",
   },
@@ -147,7 +135,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: "none",
     border: "1px solid #2a2a2a",
     borderRadius: "4px",
-    color: "#555",
+    color: "var(--text-2)",
     fontSize: "10px",
     padding: "4px 10px",
     cursor: "pointer",
@@ -156,12 +144,12 @@ const styles: Record<string, React.CSSProperties> = {
   },
   timestamp: {
     fontSize: "10px",
-    color: "#777",
+    color: "#555",
     lineHeight: 1.5,
   },
 };
 
-export function SessionCard({ session }: Props) {
+export function SessionCard({ session, isSource, isTarget }: Props) {
   const [sendOpen, setSendOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [summary, setSummary] = useState<string | null>(null);
@@ -185,73 +173,82 @@ export function SessionCard({ session }: Props) {
   }, [actionError]);
 
   const statusInfo = STATUS_DOT[session.status];
+  const isRunning = session.status === "running";
 
   async function handleFocus() {
     try {
       await invoke("focus_session", { sessionId: session.id });
     } catch (err) {
-      console.error("focus_session error:", err);
       setActionError("Focus failed — Terminal window not found");
+      console.error(err);
     }
   }
 
   async function handleSend() {
     if (!message.trim()) return;
     try {
-      await invoke("inject_message", {
-        sessionId: session.id,
-        message: message.trim(),
-      });
+      await invoke("inject_message", { sessionId: session.id, message: message.trim() });
       setMessage("");
       setSendOpen(false);
     } catch (err) {
-      console.error("inject_message error:", err);
-      setActionError("Send failed — could not inject message");
+      setActionError(`Send failed: ${err}`);
+      console.error(err);
     }
   }
 
   async function handleSummarize() {
     setSummarizing(true);
     try {
-      const raw = await invoke<string>("summarize_session", {
-        sessionId: session.id,
-      });
+      const raw = await invoke<string>("summarize_session", { sessionId: session.id });
       setSummary(raw || "(no content)");
     } catch (err) {
       setSummary(`Error: ${err}`);
-      console.error(err);
     } finally {
       setSummarizing(false);
     }
   }
 
+  const cardClass = [
+    "session-card",
+    isRunning ? "session-card--running" : "",
+    sendOpen ? "session-card--send-open" : "",
+  ].filter(Boolean).join(" ");
+
   return (
-    <div
-      style={{
-        ...styles.card,
-        borderColor: session.status === "running" ? "#1a3a1a" : "#1e1e1e",
-        position: "relative",
-      }}
-    >
+    <div className={cardClass} data-session-id={session.id}>
       {/* Header */}
       <div style={styles.cardHeader}>
-        <div>
+        <div style={{ flex: 1 }}>
           <div style={styles.projectName}>{session.project || session.id}</div>
           <div style={styles.cwd}>{session.cwd}</div>
         </div>
+        {/* Pipe connection dot — no label, just presence */}
+        {(isSource || isTarget) && (
+          <div
+            title={isSource ? "pipe source" : "pipe target"}
+            style={{
+              width: "5px",
+              height: "5px",
+              borderRadius: "50%",
+              background: "var(--signal)",
+              opacity: 0.5,
+              flexShrink: 0,
+              marginTop: "3px",
+            }}
+          />
+        )}
       </div>
 
       {/* Status row */}
       <div style={styles.statusRow}>
         <span
-          style={{
-            ...styles.dot,
-            background: statusInfo.color,
-            boxShadow: session.status === "running" ? `0 0 6px ${statusInfo.color}` : "none",
-          }}
+          className={isRunning ? "session-card__dot--running" : ""}
+          style={{ ...styles.dot, background: statusInfo.color }}
         />
         <span style={styles.statusLabel}>{statusInfo.label}</span>
-        <span style={styles.toolBadge}>{session.tool_count} tool{session.tool_count !== 1 ? "s" : ""}</span>
+        <span style={styles.toolBadge}>
+          {session.tool_count} tool{session.tool_count !== 1 ? "s" : ""}
+        </span>
         <span style={{ ...styles.timestamp, marginLeft: "auto", textAlign: "right" }}>
           {(() => {
             const { date, time } = formatDateTime(session.modified_at);
@@ -262,14 +259,12 @@ export function SessionCard({ session }: Props) {
 
       {/* Last output */}
       <div style={styles.lastOutput}>
-        {session.last_output || <span style={{ color: "#2a2a2a" }}>no output yet</span>}
+        {session.last_output || <span style={{ color: "#222" }}>no output yet</span>}
       </div>
 
-      {/* Actions */}
-      <div style={styles.actions}>
-        <button style={styles.btn} onClick={handleFocus}>
-          Focus
-        </button>
+      {/* Actions — hidden until hover (CSS handles it via session-card__actions) */}
+      <div className="session-card__actions">
+        <button style={styles.btn} onClick={handleFocus}>Focus</button>
         <button
           style={{ ...styles.btn, ...(sendOpen ? styles.btnPrimary : {}) }}
           onClick={() => setSendOpen((v) => !v)}
@@ -294,27 +289,22 @@ export function SessionCard({ session }: Props) {
           autoFocus
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleSend();
-            }
+            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
             if (e.key === "Escape") setSendOpen(false);
           }}
         />
       )}
 
-      {/* Summary overlay — floats over the card, doesn't affect grid layout */}
+      {/* Summary overlay */}
       {summary !== null && !summarizing && (
         <div style={styles.summaryOverlay}>
           <div style={styles.summaryTitle}>Summary</div>
           <div style={styles.summaryText}>{summary}</div>
-          <button style={styles.summaryClose} onClick={() => setSummary(null)}>
-            Dismiss
-          </button>
+          <button style={styles.summaryClose} onClick={() => setSummary(null)}>Dismiss</button>
         </div>
       )}
 
-      {/* Action error display — auto-clears after 3s */}
+      {/* Action error */}
       {actionError && (
         <div style={{ fontSize: "11px", color: "#f87171", marginTop: "-4px" }}>
           {actionError}
