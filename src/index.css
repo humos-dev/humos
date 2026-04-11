@@ -338,7 +338,17 @@ body {
 }
 
 /* ── Signal command bar ──────────────────────────────────────── */
+/*
+ * Absolute overlay anchored below the header so opening the bar doesn't
+ * reflow the session grid (the v0.3.0 layout-shift pain point).
+ * Header is 16px+16px padding + ~40px content ≈ 73px tall.
+ */
 .signal-command-bar {
+  position: absolute;
+  top: 73px;
+  left: 0;
+  right: 0;
+  z-index: 50;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -347,6 +357,7 @@ body {
   background: #0d0d0d;
   border-bottom: 1px solid var(--border);
   border-left: 2px solid var(--signal);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   transition: border-color 0.15s;
 }
 
@@ -376,8 +387,13 @@ body {
 
 .signal-command-bar__counter {
   font-size: 10px;
-  color: #f87171;
+  color: var(--text-2);
   flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.signal-command-bar__counter--warn {
+  color: #f87171;
 }
 
 .signal-command-bar__toast {
@@ -393,11 +409,11 @@ body {
   position: absolute;
   bottom: -4px;
   left: 0;
-  height: 1px;
+  height: 2px;
   width: 100%;
   background: var(--signal);
   animation: signal-countdown 2s linear forwards;
-  opacity: 0.6;
+  opacity: 0.8;
 }
 
 @keyframes signal-countdown {
@@ -412,8 +428,14 @@ body {
   font-size: 11px;
   font-family: inherit;
   cursor: pointer;
-  padding: 0;
+  padding: 4px 8px;
   text-decoration: underline;
+  border-radius: 3px;
+  transition: background 0.15s;
+}
+
+.signal-command-bar__cancel:hover {
+  background: rgba(62, 207, 142, 0.1);
 }
 
 .signal-command-bar__error-text {

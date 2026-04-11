@@ -640,8 +640,8 @@ export default function App() {
               if (e.key === "Escape") handleSignalCancel();
             }}
           />
-          {signalMessage.length > 409 && (
-            <span className="signal-command-bar__counter">
+          {signalMessage.length > 350 && (
+            <span className={`signal-command-bar__counter${signalMessage.length > 460 ? " signal-command-bar__counter--warn" : ""}`}>
               {signalMessage.length}/512
             </span>
           )}
@@ -657,8 +657,29 @@ export default function App() {
             </span>
           )}
           {signalError && (
-            <span className="signal-command-bar__error-text">{signalError}</span>
+            <span className="signal-command-bar__error-text" role="alert">{signalError}</span>
           )}
+          {/* Screen-reader live region for delivery status — visually hidden */}
+          <span
+            role="status"
+            aria-live="polite"
+            style={{
+              position: "absolute",
+              width: 1,
+              height: 1,
+              padding: 0,
+              overflow: "hidden",
+              clip: "rect(0, 0, 0, 0)",
+              whiteSpace: "nowrap",
+              border: 0,
+            }}
+          >
+            {signalPending
+              ? `Queued for ${nonIdleCount} sessions, undo available for two seconds.`
+              : signalError
+              ? signalError
+              : ""}
+          </span>
         </div>
       )}
 

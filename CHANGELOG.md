@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.6] - 2026-04-11
+
+### Fixed — signal() polish pass (from UX audit)
+- **Layout shift on open**: `.signal-command-bar` is now `position: absolute; top: 73px; z-index: 50` with a box-shadow instead of sitting in the document flow. Opening the bar no longer pushes the session grid down 40px. Computer vision verified: cards stay put when the bar opens.
+- **Countdown bar visibility**: `.signal-command-bar__toast::after` raised from 1px/0.6 opacity → 2px/0.8 opacity so the 2s undo countdown is actually noticeable.
+- **Undo cancel hit target**: `.signal-command-bar__cancel` gained 4x8 padding + hover background so it's clickable as a button, not a thin underlined word.
+- **Counter threshold + gradient**: the char counter now appears at 350+ chars in the subtle `--text-2` color and flips to red (`--warn` modifier) at 460+. Previously it only appeared at 409+ in red — a cliff with no warmup.
+- **Screen-reader live region**: added a visually-hidden `role="status" aria-live="polite"` span inside the command bar that announces "Queued for N sessions, undo available for two seconds" on pending and error text on failure. The error banner itself also gained `role="alert"`.
+
 ## [0.3.5] - 2026-04-11
 
 ### Fixed — signal() QA pass
