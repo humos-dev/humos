@@ -10,6 +10,7 @@
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://humos.dev" />
   <link rel="canonical" href="https://humos.dev/" />
+  <meta name="theme-color" content="#080808" />
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="humOS: Unix primitives for AI agents" />
   <meta name="twitter:description" content="pipe(), signal(), join() for your Claude Code sessions. Runs locally. No API costs." />
@@ -28,7 +29,7 @@
       --text: #e8e8e8;
       --text-1: #bdbdbd;
       --text-2: #999999;
-      --text-3: #777777;
+      --text-3: #8a8a8a;
       --signal: #3ecf8e;
       --signal-dim: rgba(62, 207, 142, 0.14);
       --signal-line: rgba(62, 207, 142, 0.28);
@@ -401,17 +402,29 @@
       .primitives .card:last-child { grid-column: 1 / -1; }
     }
     @media (max-width: 640px) {
-      .wrap { padding: 0 20px; }
-      .hero { padding: 64px 0 56px; }
-      .hero h1 { font-size: 34px; }
-      .hero .sub { font-size: 16px; }
-      section { padding: 56px 0; }
-      section h3.headline { font-size: 24px; }
+      .wrap { padding: 0 16px; }
+      .hero { padding: 56px 0 48px; }
+      .hero h1 { font-size: 30px; letter-spacing: -0.01em; }
+      .hero .sub { font-size: 15px; }
+      .hero .kicker { font-size: 11px; }
+      .hero .kicker img { display: none; }
+      section { padding: 48px 0; }
+      section h3.headline { font-size: 22px; }
       .primitives { grid-template-columns: 1fr; }
-      nav.primary { gap: 16px; font-size: 12px; }
-      .cmd { font-size: 12px; padding: 12px 14px; }
-      table.compare th, table.compare td { padding: 10px 12px; font-size: 12px; }
-      table.compare td.row-label { font-size: 13px; }
+      nav.primary { gap: 12px; font-size: 11px; }
+      .cmd { font-size: 11px; padding: 10px 12px; white-space: normal; word-break: break-all; }
+      .cmd-wrap { flex-direction: column; }
+      .cmd-wrap .cmd { border-radius: var(--radius); border-right: 1px solid var(--border-2); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+      .copy-btn { border-radius: 0 0 var(--radius) var(--radius); border-left: 1px solid var(--border-2); border-top: none; width: 100%; padding: 10px; text-align: center; }
+      .install-row { flex-direction: column; gap: 12px; }
+      table.compare th, table.compare td { padding: 8px 10px; font-size: 11px; }
+      table.compare td.row-label { font-size: 12px; }
+      .card { padding: 20px; }
+      .card .sig { font-size: 16px; }
+      .card .desc { font-size: 13px; }
+      header.site .inner { padding: 0 16px; }
+      blockquote { font-size: 18px; padding-left: 16px; }
+      .steps li { font-size: 15px; padding-left: 40px; }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -609,6 +622,7 @@
           <button class="copy-btn" onclick="navigator.clipboard.writeText('brew tap humos-dev/humos && brew install --cask humos').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)}).catch(()=>{this.textContent='Failed';setTimeout(()=>this.textContent='Copy',1500)})" aria-label="Copy install command" aria-live="polite">Copy</button>
         </div>
         <div class="install-fallback">or grab the .dmg from <a href="https://github.com/humos-dev/humos/releases" target="_blank" rel="noopener noreferrer">GitHub Releases</a>.</div>
+        <div class="install-meta" style="margin-top: 12px; line-height: 1.6;">Needs Accessibility permission to inject text into Terminal.app. Reads ~/.claude/projects/. Writes nothing outside your terminal. Uninstall: <code style="font-size:11px">brew uninstall --cask humos</code>. No background processes after quit.</div>
         <div class="install-meta">requires macOS 13+ and Terminal.app (iTerm2 supported) · MIT licensed</div>
       </div>
     </div>

