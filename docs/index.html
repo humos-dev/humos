@@ -3,12 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>humOS — Unix primitives for AI agents</title>
+  <title>humOS: Unix primitives for AI agents</title>
   <meta name="description" content="Compose your Claude Code sessions the way Unix composes processes. Locally, on the sessions you already have open. Open source, MIT." />
-  <meta property="og:title" content="humOS — Unix primitives for AI agents" />
+  <meta property="og:title" content="humOS: Unix primitives for AI agents" />
   <meta property="og:description" content="pipe(), signal(), join() for your Claude Code sessions. Runs locally. No API costs." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://humos.dev" />
+  <link rel="canonical" href="https://humos.dev/" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -22,8 +23,8 @@
       --border-2: #262626;
       --text: #e8e8e8;
       --text-1: #bdbdbd;
-      --text-2: #8a8a8a;
-      --text-3: #555555;
+      --text-2: #999999;
+      --text-3: #777777;
       --signal: #3ecf8e;
       --signal-dim: rgba(62, 207, 142, 0.14);
       --signal-line: rgba(62, 207, 142, 0.28);
@@ -269,9 +270,11 @@
     .table-wrap {
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      overflow: hidden;
+      overflow-x: auto;
+      overflow-y: hidden;
       background: var(--bg-1);
       margin-top: 8px;
+      -webkit-overflow-scrolling: touch;
     }
     table.compare {
       width: 100%;
@@ -378,32 +381,58 @@
 
     @media (prefers-reduced-motion: reduce) {
       * { transition: none !important; animation: none !important; }
+      header.site { backdrop-filter: none; -webkit-backdrop-filter: none; }
     }
+
+    a:focus-visible, button:focus-visible {
+      outline: 2px solid var(--signal);
+      outline-offset: 2px;
+      border-radius: 2px;
+    }
+
+    .skip-link {
+      position: absolute;
+      top: -100%;
+      left: 16px;
+      padding: 8px 16px;
+      background: var(--signal);
+      color: var(--bg);
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: 4px;
+      z-index: 999;
+      text-decoration: none;
+    }
+    .skip-link:focus { top: 8px; }
   </style>
 </head>
 <body>
+
+  <a class="skip-link" href="#main">Skip to content</a>
 
   <!-- ===== HEADER ===== -->
   <header class="site">
     <div class="wrap inner">
       <div class="wordmark"><span class="glyph">⌁</span>humOS</div>
       <nav class="primary">
-        <a href="https://github.com/BoluOgunbiyi/humos">GitHub</a>
-        <a href="https://github.com/BoluOgunbiyi/humos#readme">Docs</a>
+        <a href="https://github.com/BoluOgunbiyi/humos" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="https://github.com/BoluOgunbiyi/humos#readme" target="_blank" rel="noopener noreferrer">README</a>
         <a href="#install">Install</a>
       </nav>
     </div>
   </header>
 
+  <main id="main">
+
   <!-- ===== HERO ===== -->
   <section class="hero">
     <div class="wrap">
-      <div class="kicker">⌁ v0.3.6 · macOS · open source</div>
+      <div class="kicker">⌁ v0.4.0 · macOS · open source</div>
       <h1>Unix primitives for <span class="accent">AI agents.</span></h1>
       <p class="sub">Compose your Claude Code sessions the way Unix composes processes. Locally. On the sessions you already have open.</p>
       <div class="install-row">
         <code class="cmd"><span class="prompt">$</span>brew tap BoluOgunbiyi/humos &amp;&amp; brew install --cask humos</code>
-        <a class="cta-secondary" href="#how">See it run ↓</a>
+        <a class="cta-secondary" href="#how">See the primitives ↓</a>
       </div>
     </div>
   </section>
@@ -431,7 +460,7 @@
         </div>
         <div class="card">
           <div class="sig">join() <span class="badge">next</span></div>
-          <p class="desc">Wait for multiple sessions to finish, aggregate their outputs. In spec. Ships with the runtime model work.</p>
+          <p class="desc">Wait for multiple sessions to finish, aggregate their outputs. In spec. Shipping soon.</p>
         </div>
       </div>
     </div>
@@ -455,7 +484,7 @@
   <section class="why">
     <div class="wrap">
       <h2>Why this exists</h2>
-      <blockquote>Same way Unix gave fork, pipe, signal, and join for process coordination, humOS gives developers primitives to coordinate AI agents at the local machine level.</blockquote>
+      <blockquote>Unix gave fork, pipe, signal, and join for process coordination. humOS gives you the same thing for AI agents.</blockquote>
       <p class="body">The missing layer isn't a smarter agent. It's the plumbing between the agents you already have. Process coordination was solved in 1973. Agent coordination hasn't been.</p>
       <div class="closer">▸ Nothing exists at this layer today.</div>
     </div>
@@ -470,11 +499,11 @@
         <table class="compare">
           <thead>
             <tr>
-              <th></th>
-              <th class="us">humOS</th>
-              <th>Conductor</th>
-              <th>opcode</th>
-              <th>claude-control</th>
+              <th scope="col"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">Feature</span></th>
+              <th scope="col" class="us">humOS</th>
+              <th scope="col">Conductor</th>
+              <th scope="col">opcode</th>
+              <th scope="col">claude-control</th>
             </tr>
           </thead>
           <tbody>
@@ -524,7 +553,7 @@
     <div class="wrap">
       <h2>Why now</h2>
       <h3 class="headline">The window is six months.</h3>
-      <p class="body">Claude Code adoption is accelerating. Multi-session workflows are becoming normal. Power users are already running 5, 10, 20 sessions in parallel and manually relaying output between them. The category of "primitives for local agent coordination" does not exist yet. In six months someone else will have built it.</p>
+      <p class="body">Multi-session workflows are becoming normal. Power users are already running 5, 10, 20 sessions in parallel and manually relaying output between them. Nobody sells local agent coordination primitives today. In six months someone will.</p>
       <span class="closer">▸ If you're running 5 Claude sessions right now, you are already the target user.</span>
     </div>
   </section>
@@ -536,17 +565,21 @@
       <h3 class="headline">One command. No API key. No account.</h3>
       <div class="install-block">
         <code class="cmd cmd-wide"><span class="prompt">$</span>brew tap BoluOgunbiyi/humos &amp;&amp; brew install --cask humos</code>
-        <div class="install-fallback">or grab the .dmg from <a href="https://github.com/BoluOgunbiyi/humos/releases">GitHub Releases</a>.</div>
-        <div class="install-meta">requires macOS 13+ and Terminal.app · 14 fixes shipped in v0.3.5 · MIT licensed</div>
+        <div class="install-fallback">or grab the .dmg from <a href="https://github.com/BoluOgunbiyi/humos/releases" target="_blank" rel="noopener noreferrer">GitHub Releases</a>.</div>
+        <div class="install-meta">requires macOS 13+ and Terminal.app (iTerm2 supported) · MIT licensed</div>
       </div>
     </div>
   </section>
 
+  </main>
+
   <!-- ===== FOOTER ===== -->
   <footer class="site">
     <div class="wrap inner">
-      <div>humOS is open source · MIT · built by <a href="https://github.com/BoluOgunbiyi">Bolu Ogunbiyi</a>.</div>
-      <div><a href="https://github.com/BoluOgunbiyi/humos">github.com/BoluOgunbiyi/humos</a></div>
+      <nav aria-label="Footer">
+        <div>humOS is open source · MIT · built by <a href="https://github.com/BoluOgunbiyi" target="_blank" rel="noopener noreferrer">Bolu Ogunbiyi</a>.</div>
+        <div><a href="https://github.com/BoluOgunbiyi/humos" target="_blank" rel="noopener noreferrer">github.com/BoluOgunbiyi/humos</a></div>
+      </nav>
     </div>
   </footer>
 
