@@ -195,6 +195,7 @@ pub struct SessionState {
     pub last_output: String,
     pub tool_count: u32,
     pub recent_tools: Vec<String>,
+    pub tty: String,
     pub started_at: String,
     pub modified_at: String,
 }
@@ -224,17 +225,23 @@ fn status_order(s: &str) -> u8 {
 ///// Tauri command: focus the Terminal window for a session and bring it to front.
 #[tauri::command]
 fn focus_session(session_id: String, cwd: Option<String>, state: State<'_, SessionMap>) -> Result<(), String> {
-    let resolved_cwd = {
+    let (resolved_cwd, resolved_tty) = {
         let map = state.lock().unwrap_or_else(|e| e.into_inner());
-        map.get(&session_id)
+        let session = map.get(&session_id);
+        let cwd_val = session
             .map(|s| s.cwd.clone())
             .filter(|c| !c.is_empty())
-            .or_else(|| cwd.filter(|c| !c.is_empty()))
+            .or_else(|| cwd.filter(|c| !c.is_empty()));
+        let tty_val = session
+            .map(|s| s.tty.clone())
+            .filter(|t| !t.is_empty());
+        (cwd_val, tty_val)
     };
 
-    match resolved_cwd {
-        Some(cwd) => applescript::focus_terminal(&cwd),
-        None => Err(format!("Session {} not found or has no cwd", session_id)),
+    match (resolved_cwd, resolved_tty) {
+        (_, Some(tty)) => applescript::focus_terminal_by_tty(&tty),
+        (Some(cwd), _) => applescript::focus_terminal(&cwd),
+        _ => Err(format!("Session {} not found or has no cwd", session_id)),
     }
 }
 
@@ -270,13 +277,23 @@ fn inject_message(
         .collect();
 
     // Try the session map first, fall back to the cwd the caller passed.
-    let resolved_cwd = {
+    let (resolved_cwd, resolved_tty) = {
         let map = state.lock().unwrap_or_else(|e| e.into_inner());
-        map.get(&session_id)
+        let session = map.get(&session_id);
+        let cwd_val = session
             .map(|s| s.cwd.clone())
             .filter(|c| !c.is_empty())
-            .or_else(|| cwd.filter(|c| !c.is_empty()))
+            .or_else(|| cwd.filter(|c| !c.is_empty()));
+        let tty_val = session
+            .map(|s| s.tty.clone())
+            .filter(|t| !t.is_empty());
+        (cwd_val, tty_val)
     };
+
+    // If we have a tty, inject directly by tty (most precise).
+    if let Some(tty) = resolved_tty {
+        return applescript::inject_by_tty(&tty, &sanitized);
+    }
 
     match resolved_cwd {
         Some(cwd) => applescript::inject_message(&cwd, &sanitized),

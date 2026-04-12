@@ -8,6 +8,7 @@ export interface SessionState {
   last_output: string;  // last assistant message content, max 500 chars; "Running: {tool_name}" for tool_use
   tool_count: number;   // count of tool_use events in file
   recent_tools: string[]; // last 5 tool names used in session
+  tty: string;           // tty device path (e.g. /dev/ttys001), empty if unknown
   started_at: string;   // timestamp of first event
   modified_at: string;  // file last modified timestamp
 }

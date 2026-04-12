@@ -342,6 +342,7 @@ mod tests {
             last_output: last_output.to_string(),
             tool_count: 0,
             recent_tools: Vec::new(),
+            tty: String::new(),
             started_at: String::new(),
             modified_at: String::new(),
         }

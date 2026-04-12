@@ -150,6 +150,10 @@ pub fn parse_session_file(path: &Path) -> Option<SessionState> {
 
     let status = compute_status(last_role.as_deref(), modified_age_secs);
 
+    // Resolve the tty for this session by finding a Claude process whose
+    // Terminal tab we can match. Empty string if unresolvable.
+    let tty = resolve_tty_for_session(&cwd);
+
     Some(SessionState {
         id: session_id,
         project,
@@ -158,9 +162,78 @@ pub fn parse_session_file(path: &Path) -> Option<SessionState> {
         last_output,
         tool_count,
         recent_tools,
+        tty,
         started_at,
         modified_at,
     })
+}
+
+/// Resolve which tty device a Claude session is running on.
+/// Returns the tty path (e.g. "/dev/ttys001") or empty string if unknown.
+///
+/// Uses osascript to check Terminal window names against the session's cwd.
+/// Falls back to the first available Claude tty when there's only one session.
+fn resolve_tty_for_session(cwd: &str) -> String {
+    if cwd.is_empty() {
+        return String::new();
+    }
+    let last_segment = cwd.split('/').filter(|s| !s.is_empty()).last().unwrap_or("");
+    if last_segment.is_empty() {
+        return String::new();
+    }
+
+    // Ask Terminal for all windows with their ttys and names
+    let output = std::process::Command::new("osascript")
+        .arg("-e")
+        .arg(r#"
+tell application "Terminal"
+    set r to ""
+    repeat with w in windows
+        try
+            set wName to name of w
+            repeat with t in tabs of w
+                set tTty to tty of t
+                set r to r & tTty & "|||" & wName & linefeed
+            end repeat
+        end try
+    end repeat
+    return r
+end tell"#)
+        .output();
+
+    let stdout = match output {
+        Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout).to_string(),
+        _ => return String::new(),
+    };
+
+    // Try to match by CWD substring in window name
+    for line in stdout.lines() {
+        let parts: Vec<&str> = line.splitn(2, "|||").collect();
+        if parts.len() != 2 { continue; }
+        let tty = parts[0].trim();
+        let name = parts[1].trim();
+        if name.to_lowercase().contains(&last_segment.to_lowercase()) {
+            return tty.to_string();
+        }
+    }
+
+    // If only one Terminal tab has claude, use it (unambiguous)
+    let claude_ttys: Vec<&str> = stdout.lines()
+        .filter_map(|l| {
+            let parts: Vec<&str> = l.splitn(2, "|||").collect();
+            if parts.len() == 2 && parts[1].contains("claude") {
+                Some(parts[0].trim())
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    if claude_ttys.len() == 1 {
+        return claude_ttys[0].to_string();
+    }
+
+    String::new()
 }
 
 /// Derive session status from the last message role and file age.

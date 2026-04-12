@@ -364,6 +364,61 @@ fn find_tty_for_cwd(cwd: &str) -> Option<String> {
     if result.is_empty() { None } else { Some(result) }
 }
 
+/// Focus a Terminal tab by its exact tty device path.
+pub fn focus_terminal_by_tty(tty: &str) -> Result<(), String> {
+    let tty_escaped = escape_applescript(tty);
+    let script = format!(
+        r#"
+tell application "Terminal"
+    repeat with w in windows
+        repeat with t in tabs of w
+            try
+                if (tty of t) is "{tty}" then
+                    set selected tab of w to t
+                    set index of w to 1
+                    activate
+                    return
+                end if
+            end try
+        end repeat
+    end repeat
+    error "No Terminal tab found for tty: {tty}" number 1001
+end tell
+"#,
+        tty = tty_escaped,
+    );
+    run_applescript(&script)
+}
+
+/// Inject a message into a Terminal tab by its exact tty device path.
+pub fn inject_by_tty(tty: &str, message: &str) -> Result<(), String> {
+    let tty_escaped = escape_applescript(tty);
+    let msg_escaped = escape_applescript(message);
+    let script = format!(
+        r#"
+tell application "Terminal"
+    repeat with w in windows
+        repeat with t in tabs of w
+            try
+                if (tty of t) is "{tty}" then
+                    do script "{message}" in t
+                    set selected tab of w to t
+                    set index of w to 1
+                    activate
+                    return
+                end if
+            end try
+        end repeat
+    end repeat
+    error "No Terminal tab found for tty: {tty}" number 1001
+end tell
+"#,
+        tty = tty_escaped,
+        message = msg_escaped,
+    );
+    run_applescript(&script)
+}
+
 /// Broadcast a message to ALL Terminal tabs running a claude process.
 /// Used by signal() which needs every session to receive the message.
 /// Returns the number of tabs that received the injection.
