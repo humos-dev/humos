@@ -121,6 +121,37 @@
     .install-row {
       display: flex; flex-wrap: wrap; align-items: center; gap: 16px;
     }
+    .cmd-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      position: relative;
+    }
+    .cmd-wrap .cmd {
+      flex: 1;
+      border-top-right-radius: 0;
+      border-bottom-right-radius: 0;
+      border-right: none;
+    }
+    .copy-btn {
+      background: var(--surface);
+      border: 1px solid var(--border-2);
+      border-left: none;
+      border-top-right-radius: var(--radius);
+      border-bottom-right-radius: var(--radius);
+      color: var(--text-2);
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: color 0.15s, background 0.15s;
+      white-space: nowrap;
+      align-self: stretch;
+    }
+    .copy-btn:hover {
+      color: var(--signal);
+      background: var(--signal-dim);
+    }
     .cmd {
       background: var(--bg-2);
       border: 1px solid var(--border-2);
@@ -431,7 +462,10 @@
       <h1>Unix primitives for <span class="accent">AI agents.</span></h1>
       <p class="sub">Compose your Claude Code sessions the way Unix composes processes. Locally. On the sessions you already have open.</p>
       <div class="install-row">
-        <code class="cmd"><span class="prompt">$</span>brew tap BoluOgunbiyi/humos &amp;&amp; brew install --cask humos</code>
+        <div class="cmd-wrap">
+          <code class="cmd"><span class="prompt">$</span>brew tap BoluOgunbiyi/humos &amp;&amp; brew install --cask humos</code>
+          <button class="copy-btn" onclick="navigator.clipboard.writeText('brew tap BoluOgunbiyi/humos && brew install --cask humos').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})" aria-label="Copy install command">Copy</button>
+        </div>
         <a class="cta-secondary" href="#how">See the primitives ↓</a>
       </div>
     </div>
@@ -564,7 +598,10 @@
       <h2>Install</h2>
       <h3 class="headline">One command. No API key. No account.</h3>
       <div class="install-block">
-        <code class="cmd cmd-wide"><span class="prompt">$</span>brew tap BoluOgunbiyi/humos &amp;&amp; brew install --cask humos</code>
+        <div class="cmd-wrap">
+          <code class="cmd cmd-wide"><span class="prompt">$</span>brew tap BoluOgunbiyi/humos &amp;&amp; brew install --cask humos</code>
+          <button class="copy-btn" onclick="navigator.clipboard.writeText('brew tap BoluOgunbiyi/humos && brew install --cask humos').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})" aria-label="Copy install command">Copy</button>
+        </div>
         <div class="install-fallback">or grab the .dmg from <a href="https://github.com/BoluOgunbiyi/humos/releases" target="_blank" rel="noopener noreferrer">GitHub Releases</a>.</div>
         <div class="install-meta">requires macOS 13+ and Terminal.app (iTerm2 supported) · MIT licensed</div>
       </div>
