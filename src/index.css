@@ -101,6 +101,16 @@ body {
   pointer-events: auto;
 }
 
+.session-card__actions button:hover {
+  background: var(--border-2);
+  color: var(--text);
+}
+
+.session-card__actions button:active {
+  background: var(--signal-dim);
+  color: var(--signal);
+}
+
 .session-card__dot--running {
   animation: breathe 1.6s ease-in-out infinite;
 }

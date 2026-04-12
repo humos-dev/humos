@@ -157,6 +157,8 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
   const [sendOpen, setSendOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [focused, setFocused] = useState(false);
   const [summary, setSummary] = useState<string | null>(null);
   const [summarizing, setSummarizing] = useState(false);
   const [dots, setDots] = useState(".");
@@ -183,27 +185,33 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
   async function handleFocus() {
     try {
       await invoke("focus_session", { sessionId: session.id, cwd: session.cwd });
+      setFocused(true);
+      setTimeout(() => setFocused(false), 1500);
     } catch (err) {
-      setActionError("Focus failed — Terminal window not found");
+      setActionError(`${err}`);
+      setTimeout(() => setActionError(null), 5000);
       console.error(err);
     }
   }
 
   async function handleSend() {
-    if (!message.trim()) return;
+    if (!message.trim() || sending) return;
+    setSending(true);
+    setActionError(null);
     try {
       await invoke("inject_message", {
         sessionId: session.id,
         message: message.trim(),
-        // Pass cwd as a fallback — session IDs change when Claude CLI
-        // restarts, so the backend can't always find the session in its map.
         cwd: session.cwd,
       });
       setMessage("");
       setSendOpen(false);
     } catch (err) {
       setActionError(`${err}`);
+      setTimeout(() => setActionError(null), 5000);
       console.error(err);
+    } finally {
+      setSending(false);
     }
   }
 
@@ -301,10 +309,17 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
 
       {/* Actions — hidden until hover (CSS handles it via session-card__actions) */}
       <div className="session-card__actions">
-        <button style={styles.btn} onClick={handleFocus}>Focus</button>
+        <button
+          style={{ ...styles.btn, ...(focused ? styles.btnPrimary : {}) }}
+          onClick={handleFocus}
+          aria-label={`Focus ${session.project} session`}
+        >
+          {focused ? "Focused!" : "Focus"}
+        </button>
         <button
           style={{ ...styles.btn, ...(sendOpen ? styles.btnPrimary : {}) }}
           onClick={() => setSendOpen((v) => !v)}
+          aria-label={`Send message to ${session.project}`}
         >
           {sendOpen ? "Cancel" : "Send"}
         </button>
@@ -312,6 +327,7 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
           style={{ ...styles.btn, opacity: summarizing ? 0.5 : 1 }}
           onClick={handleSummarize}
           disabled={summarizing}
+          aria-label={`Summarize ${session.project} session`}
         >
           {summarizing ? dots : "Summarize"}
         </button>
@@ -321,9 +337,11 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
       {sendOpen && (
         <input
           style={styles.sendInput}
-          placeholder="Type a message and press Enter..."
+          placeholder={`Send to ${session.project}... (Enter to send, Esc to cancel)`}
           value={message}
+          maxLength={512}
           autoFocus
+          readOnly={sending}
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
