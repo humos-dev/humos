@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { SessionState, SessionStatus } from "./types";
 import { formatDateTime } from "./utils/formatDateTime";
 
@@ -185,17 +184,12 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
 
   async function handleFocus() {
     try {
-      setFocused(true);
-      // Minimize humOS so the Terminal window is clearly visible — like
-      // Spotlight dismissing itself after launching an app.
-      await getCurrentWindow().minimize();
       await invoke("focus_session", { sessionId: session.id, cwd: session.cwd });
+      setFocused(true);
       setTimeout(() => setFocused(false), 1500);
     } catch (err) {
       setActionError(`${err}`);
       setTimeout(() => setActionError(null), 5000);
-      // Restore humOS if focus failed
-      getCurrentWindow().unminimize().catch(() => {});
       setFocused(false);
       console.error(err);
     }
@@ -213,8 +207,6 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
       });
       setMessage("");
       setSendOpen(false);
-      // Minimize humOS and switch to Terminal so user sees the message land
-      await getCurrentWindow().minimize();
     } catch (err) {
       setActionError(`${err}`);
       setTimeout(() => setActionError(null), 5000);
