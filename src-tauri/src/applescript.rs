@@ -161,12 +161,20 @@ fn inject_message_app(cwd: &str, message: &str) -> Result<(), String> {
     let last_segment = escape_applescript(last_segment_raw);
     let msg_escaped = escape_applescript(message);
 
+    // Three-pass matching:
+    // 1. Match by custom title containing the cwd or its last segment
+    // 2. Match by tab name containing the cwd or its last segment
+    // 3. Fallback: match by process list containing "claude"
+    //    (Claude Code overrides Terminal tab titles with named session titles
+    //    like "⠐ Continue humOS development", breaking cwd-based matching)
     let script = format!(
         r#"
 tell application "Terminal"
     set targetCwd to "{cwd}"
     set targetName to "{last_segment}"
     set injected to false
+
+    -- Pass 1+2: match by tab title or custom title
     repeat with w in windows
         repeat with t in tabs of w
             set matchFound to false
@@ -186,15 +194,33 @@ tell application "Terminal"
             end if
             if matchFound then
                 do script "{message}" in t
-                set selected tab of w to t
-                set index of w to 1
-                activate
                 set injected to true
                 exit repeat
             end if
         end repeat
         if injected then exit repeat
     end repeat
+
+    -- Pass 3: fallback to process-name matching (finds tabs running claude)
+    if not injected then
+        repeat with w in windows
+            repeat with t in tabs of w
+                try
+                    set procList to processes of t
+                    repeat with p in procList
+                        if p contains "claude" then
+                            do script "{message}" in t
+                            set injected to true
+                            exit repeat
+                        end if
+                    end repeat
+                end try
+                if injected then exit repeat
+            end repeat
+            if injected then exit repeat
+        end repeat
+    end if
+
     if not injected then
         error "No Terminal tab found for path: {cwd}" number 1001
     end if
