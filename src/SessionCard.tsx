@@ -275,24 +275,44 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
         className={`session-card__activity${expanded ? " session-card__activity--expanded" : ""}`}
         onClick={() => setExpanded((v) => !v)}
       >
-        <div className="session-card__activity-text">
-          {session.last_output || "no output yet"}
-        </div>
-        {expanded && (
+        {!expanded ? (
           <>
-            {session.recent_tools.length > 0 && (
-              <div className="session-card__activity-tools">
-                {session.recent_tools.map((t, i) => (
-                  <span key={i} className="session-card__tool-tag">{t}</span>
-                ))}
+            <div className="session-card__activity-text">
+              {session.last_output || "no output yet"}
+            </div>
+            <span className="session-card__expand-icon">▸</span>
+          </>
+        ) : (
+          <>
+            <div className="session-card__activity-header">
+              <span className="session-card__activity-label">Activity</span>
+              <span className="session-card__expand-icon" style={{ position: "static" }}>▾ collapse</span>
+            </div>
+            <div className="session-card__activity-output">
+              {session.last_output || "no output yet"}
+            </div>
+            {session.recent_tools && session.recent_tools.length > 0 && (
+              <div className="session-card__activity-section">
+                <div className="session-card__activity-section-label">Recent tools</div>
+                <div className="session-card__activity-tools">
+                  {session.recent_tools.map((t, i) => (
+                    <span key={i} className="session-card__tool-tag">{t}</span>
+                  ))}
+                </div>
               </div>
             )}
-            <div className="session-card__activity-meta">
-              Started {formatDateTime(session.started_at).date} · {session.tool_count} tool{session.tool_count !== 1 ? "s" : ""}
+            <div className="session-card__activity-section">
+              <div className="session-card__activity-section-label">Session info</div>
+              <div className="session-card__activity-meta">
+                <div>Started: {formatDateTime(session.started_at).date} {formatDateTime(session.started_at).time}</div>
+                <div>Last active: {formatDateTime(session.modified_at).date} {formatDateTime(session.modified_at).time}</div>
+                <div>Tools called: {session.tool_count}</div>
+                <div>Status: {session.status}</div>
+                <div>CWD: {session.cwd}</div>
+              </div>
             </div>
           </>
         )}
-        <span className="session-card__expand-icon">{expanded ? "▾" : "▸"}</span>
       </div>
 
       {/* Actions — hidden until hover (CSS handles it via session-card__actions) */}
