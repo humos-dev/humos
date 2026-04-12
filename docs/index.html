@@ -395,6 +395,77 @@
     footer.site a { color: var(--text-1); }
     footer.site a:hover { color: var(--signal); }
 
+    /* ---------- FAQ ---------- */
+    .faq { padding: 72px 0; }
+    .faq-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin-top: 24px;
+    }
+    .faq-item {
+      border-bottom: 1px solid var(--border);
+      padding: 0;
+    }
+    .faq-item:first-child {
+      border-top: 1px solid var(--border);
+    }
+    .faq-q {
+      display: block;
+      padding: 20px 0;
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text);
+      cursor: pointer;
+      list-style: none;
+      position: relative;
+      padding-right: 32px;
+    }
+    .faq-q::-webkit-details-marker { display: none; }
+    .faq-q::after {
+      content: '+';
+      position: absolute;
+      right: 0;
+      top: 20px;
+      font-size: 18px;
+      color: var(--text-3);
+      transition: transform 0.2s;
+    }
+    details[open] .faq-q::after {
+      content: '−';
+      color: var(--signal);
+    }
+    .faq-q:hover { color: var(--signal); }
+    .faq-a {
+      font-size: 14px;
+      color: var(--text-1);
+      line-height: 1.6;
+      padding: 0 0 20px;
+    }
+    .faq-a code {
+      font-family: var(--mono);
+      font-size: 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 2px 6px;
+    }
+
+    /* ---------- spacing fixes ---------- */
+    .why-now .body {
+      margin-top: 16px;
+      line-height: 1.7;
+    }
+    .why-now .closer {
+      margin-top: 24px;
+      display: block;
+    }
+    .install-block {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
     /* ---------- responsive ---------- */
     @media (max-width: 1024px) {
       .hero h1 { font-size: 46px; }
@@ -629,8 +700,40 @@
           <button class="copy-btn" onclick="navigator.clipboard.writeText('brew tap humos-dev/humos && brew install --cask humos').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)}).catch(()=>{this.textContent='Failed';setTimeout(()=>this.textContent='Copy',1500)})" aria-label="Copy install command" aria-live="polite">Copy</button>
         </div>
         <div class="install-fallback">or grab the .dmg from <a href="https://github.com/humos-dev/humos/releases" target="_blank" rel="noopener noreferrer">GitHub Releases</a>.</div>
-        <div class="install-meta" style="margin-top: 12px; line-height: 1.6;">Needs Accessibility permission to inject text into Terminal.app. Reads ~/.claude/projects/. Writes nothing outside your terminal. Uninstall: <code style="font-size:11px">brew uninstall --cask humos</code>. No background processes after quit.</div>
-        <div class="install-meta">requires macOS 13+ and Terminal.app (iTerm2 supported) · MIT licensed</div>
+        <div class="install-meta" style="margin-top: 16px;">requires macOS 13+ · Terminal.app or iTerm2 · MIT licensed</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FAQ ===== -->
+  <section class="faq">
+    <div class="wrap">
+      <h2>FAQ</h2>
+      <div class="faq-list">
+        <details class="faq-item">
+          <summary class="faq-q">What permissions does it need?</summary>
+          <p class="faq-a">Accessibility permission to inject text into Terminal.app. macOS will prompt you on first use. You can revoke it anytime in System Settings.</p>
+        </details>
+        <details class="faq-item">
+          <summary class="faq-q">What data does it access?</summary>
+          <p class="faq-a">Reads <code>~/.claude/projects/</code> (Claude CLI session files). Writes pipe rules to <code>~/.humOS/pipe-rules.json</code>. Nothing else. No network calls, no cloud, no telemetry.</p>
+        </details>
+        <details class="faq-item">
+          <summary class="faq-q">Does it run in the background?</summary>
+          <p class="faq-a">No. When you quit humOS, it stops completely. No background processes, no daemons, no menu bar agents.</p>
+        </details>
+        <details class="faq-item">
+          <summary class="faq-q">How do I uninstall?</summary>
+          <p class="faq-a"><code>brew uninstall --cask humos</code> removes the app. Delete <code>~/.humOS/</code> to remove saved pipe rules. That's everything.</p>
+        </details>
+        <details class="faq-item">
+          <summary class="faq-q">What platforms are supported?</summary>
+          <p class="faq-a">macOS 13+ (Ventura or later). Terminal.app and iTerm2. Linux and Windows are not planned. humOS uses AppleScript for terminal injection, which is macOS-only.</p>
+        </details>
+        <details class="faq-item">
+          <summary class="faq-q">Is it open source?</summary>
+          <p class="faq-a">Yes. MIT licensed. <a href="https://github.com/humos-dev/humos" target="_blank" rel="noopener noreferrer">github.com/humos-dev/humos</a>. Contributions welcome.</p>
+        </details>
       </div>
     </div>
   </section>
