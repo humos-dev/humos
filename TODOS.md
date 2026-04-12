@@ -227,6 +227,21 @@ Write to ~/.humOS/signals.json watched by sessions, as an alternative to AppleSc
 For N>15 sessions, spawn tokio tasks for parallel AppleScript calls. ~2s sequential latency becomes ~200ms parallel.
 **Effort:** S | **Priority:** P3
 
+### Opt-In Anonymous Telemetry (Path B — approved Apr 12)
+**Decision:** Add opt-in anonymous telemetry to measure actual product usage.
+**North star metric:** Weekly pipe() fires per active user.
+**What to track:** app opens, pipe rules created, pipe fires, signal broadcasts, session count. Counts only, no content, no file paths, no personal data.
+**UX:** First-launch prompt: "Help improve humOS? Anonymous usage stats only. No session content." Accept / Decline. Decline = no telemetry ever. Accept = anonymous counts sent to a simple endpoint.
+**Dashboard metrics:**
+- Weekly installs (Homebrew + .dmg)
+- Weekly active users (app opens)
+- Pipe rules created (total)
+- Pipe fires per week
+- Signal broadcasts per week
+- GitHub stars
+**Backend:** Simple POST to a Cloudflare Worker or Val.town function. Store in a free Turso/Supabase DB. No auth, no user IDs, just event counts with a random install ID.
+**Effort:** M | **Priority:** P1
+
 ### Strategic: humOS Runtime Model
 Before shipping join() and orchestrator sessions, define the runtime model: does humOS have a scheduler and message bus, or is it a GUI layer on ad-hoc sessions? These are different architectures. Recommended: define the runtime contract as a spec before building join().
 **Effort:** S (spec), XL (build) | **Priority:** P1
