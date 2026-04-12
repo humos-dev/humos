@@ -474,6 +474,7 @@ body {
 
 .session-card__activity--expanded {
   max-height: 400px;
+  min-height: 180px;
   overflow-y: auto;
   border-color: var(--signal);
   padding: 12px 14px;
