@@ -214,20 +214,51 @@ fn focus_session(session_id: String, state: State<'_, SessionMap>) -> Result<(),
 }
 
 /// Tauri command: inject a message into the terminal for a session.
+///
+/// Session IDs (JSONL filenames) change every time Claude CLI restarts, so
+/// we accept an optional `cwd` fallback from the frontend. Resolution order:
+///   1. look up session_id in the map and use its current cwd
+///   2. if that fails, use the explicit cwd param the caller passed
+///   3. if both are empty, return an error
+///
+/// This mirrors the pipe() CWD fallback fix from v0.3.2 — the Send button
+/// and every other single-session inject path now survives session restarts.
 #[tauri::command]
 fn inject_message(
     session_id: String,
     message: String,
+    cwd: Option<String>,
     state: State<'_, SessionMap>,
 ) -> Result<(), String> {
-    let cwd = {
+    // Validate message the same way signal_sessions does — empty strings,
+    // over-length, and control characters all cause silent terminal breakage.
+    let trimmed = message.trim();
+    if trimmed.is_empty() {
+        return Err("Message is empty.".to_string());
+    }
+    if trimmed.chars().count() > SIGNAL_MAX_CHARS {
+        return Err(format!("Message exceeds {} character limit.", SIGNAL_MAX_CHARS));
+    }
+    let sanitized: String = trimmed
+        .chars()
+        .map(|c| if c.is_control() { ' ' } else { c })
+        .collect();
+
+    // Try the session map first, fall back to the cwd the caller passed.
+    let resolved_cwd = {
         let map = state.lock().unwrap_or_else(|e| e.into_inner());
-        map.get(&session_id).map(|s| s.cwd.clone())
+        map.get(&session_id)
+            .map(|s| s.cwd.clone())
+            .filter(|c| !c.is_empty())
+            .or_else(|| cwd.filter(|c| !c.is_empty()))
     };
 
-    match cwd {
-        Some(cwd) if !cwd.is_empty() => applescript::inject_message(&cwd, &message),
-        _ => Err(format!("Session {} not found or has no cwd", session_id)),
+    match resolved_cwd {
+        Some(cwd) => applescript::inject_message(&cwd, &sanitized),
+        None => Err(format!(
+            "Session {} not found. If Claude CLI was restarted, the session ID changed; humOS will recover on the next rescan.",
+            session_id
+        )),
     }
 }
 

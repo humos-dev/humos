@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>humOS — Unix primitives for AI agents</title>
+  <meta name="description" content="Compose your Claude Code sessions the way Unix composes processes. Locally, on the sessions you already have open. Open source, MIT." />
+  <meta property="og:title" content="humOS — Unix primitives for AI agents" />
+  <meta property="og:description" content="pipe(), signal(), join() for your Claude Code sessions. Runs locally. No API costs." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://humos.dev" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #080808;
+      --bg-1: #0b0b0b;
+      --bg-2: #0d0d0d;
+      --surface: #111111;
+      --border: #1c1c1c;
+      --border-2: #262626;
+      --text: #e8e8e8;
+      --text-1: #bdbdbd;
+      --text-2: #8a8a8a;
+      --text-3: #555555;
+      --signal: #3ecf8e;
+      --signal-dim: rgba(62, 207, 142, 0.14);
+      --signal-line: rgba(62, 207, 142, 0.28);
+      --warn: #e55;
+      --mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+      --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+      --radius: 6px;
+      --maxw: 1080px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.6;
+      background-image:
+        linear-gradient(to right, rgba(255,255,255,0.018) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255,255,255,0.018) 1px, transparent 1px);
+      background-size: 48px 48px;
+    }
+
+    a { color: var(--text); text-decoration: none; }
+    a:hover { color: var(--signal); }
+
+    code, pre, .mono { font-family: var(--mono); }
+
+    .wrap {
+      max-width: var(--maxw);
+      margin: 0 auto;
+      padding: 0 32px;
+    }
+
+    /* ---------- header ---------- */
+    header.site {
+      border-bottom: 1px solid var(--border);
+      background: rgba(8,8,8,0.72);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      position: sticky; top: 0; z-index: 20;
+    }
+    header.site .inner {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 56px;
+    }
+    .wordmark {
+      font-family: var(--mono);
+      font-weight: 600;
+      font-size: 15px;
+      letter-spacing: -0.01em;
+    }
+    .wordmark .glyph { color: var(--signal); margin-right: 6px; }
+    nav.primary {
+      display: flex; gap: 24px;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--text-1);
+    }
+    nav.primary a { color: var(--text-1); }
+    nav.primary a:hover { color: var(--signal); }
+
+    /* ---------- hero ---------- */
+    .hero {
+      padding: 96px 0 72px;
+      border-bottom: 1px solid var(--border);
+    }
+    .hero .kicker {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--signal);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+    .hero h1 {
+      font-size: 56px;
+      line-height: 1.05;
+      letter-spacing: -0.02em;
+      font-weight: 600;
+      margin: 0 0 20px;
+      max-width: 860px;
+    }
+    .hero h1 .accent { color: var(--signal); }
+    .hero .sub {
+      font-size: 18px;
+      color: var(--text-1);
+      max-width: 640px;
+      margin: 0 0 36px;
+    }
+    .install-row {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 16px;
+    }
+    .cmd {
+      background: var(--bg-2);
+      border: 1px solid var(--border-2);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      font-family: var(--mono);
+      font-size: 13.5px;
+      color: var(--text);
+      display: inline-flex; align-items: center; gap: 12px;
+      max-width: 100%;
+      overflow-x: auto;
+    }
+    .cmd .prompt { color: var(--signal); }
+    .cta-secondary {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--text-1);
+      border-bottom: 1px dashed var(--text-3);
+      padding-bottom: 2px;
+    }
+    .cta-secondary:hover { color: var(--signal); border-bottom-color: var(--signal); }
+
+    /* ---------- generic section ---------- */
+    section { padding: 72px 0; border-bottom: 1px solid var(--border); }
+    section h2 {
+      font-size: 13px;
+      font-family: var(--mono);
+      font-weight: 500;
+      color: var(--signal);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin: 0 0 24px;
+    }
+    section h3.headline {
+      font-size: 32px;
+      line-height: 1.2;
+      letter-spacing: -0.015em;
+      font-weight: 600;
+      margin: 0 0 20px;
+      max-width: 720px;
+      color: var(--text);
+    }
+    section p.body {
+      font-size: 17px;
+      color: var(--text-1);
+      max-width: 680px;
+      margin: 0 0 16px;
+    }
+
+    /* ---------- problem ---------- */
+    .problem p {
+      font-size: 19px;
+      line-height: 1.55;
+      color: var(--text-1);
+      max-width: 720px;
+      margin: 0;
+    }
+    .problem p strong { color: var(--text); font-weight: 500; }
+
+    /* ---------- primitives grid ---------- */
+    .primitives {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 32px;
+    }
+    .card {
+      background: var(--bg-1);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 24px;
+      position: relative;
+    }
+    .card:hover { border-color: var(--border-2); }
+    .card .sig {
+      font-family: var(--mono);
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--signal);
+      margin-bottom: 12px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .card .desc { color: var(--text-1); font-size: 14.5px; margin: 0; }
+    .badge {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-2);
+      border: 1px solid var(--border-2);
+      padding: 2px 6px;
+      border-radius: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    /* ---------- how it works ---------- */
+    ol.steps {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      counter-reset: step;
+      max-width: 760px;
+    }
+    ol.steps li {
+      counter-increment: step;
+      padding: 18px 0 18px 56px;
+      border-top: 1px solid var(--border);
+      position: relative;
+      color: var(--text-1);
+      font-size: 16px;
+    }
+    ol.steps li:last-child { border-bottom: 1px solid var(--border); }
+    ol.steps li::before {
+      content: "0" counter(step);
+      position: absolute;
+      left: 0; top: 18px;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--signal);
+      font-weight: 500;
+    }
+    ol.steps li code {
+      background: var(--bg-2);
+      border: 1px solid var(--border-2);
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    /* ---------- why this exists ---------- */
+    .why blockquote {
+      border-left: 2px solid var(--signal);
+      padding: 4px 0 4px 20px;
+      margin: 0 0 20px;
+      font-size: 18px;
+      color: var(--text);
+      font-style: normal;
+      max-width: 760px;
+    }
+    .why .closer {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--signal);
+    }
+
+    /* ---------- table ---------- */
+    .table-wrap {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: var(--bg-1);
+      margin-top: 8px;
+    }
+    table.compare {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--mono);
+      font-size: 13.5px;
+    }
+    table.compare th, table.compare td {
+      padding: 14px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-1);
+    }
+    table.compare thead th {
+      color: var(--text-2);
+      font-weight: 500;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      background: var(--bg-2);
+    }
+    table.compare thead th.us { color: var(--signal); }
+    table.compare tbody tr:last-child td { border-bottom: none; }
+    table.compare td.row-label { color: var(--text); font-family: var(--sans); font-size: 14.5px; }
+    table.compare td.yes { color: var(--signal); }
+    table.compare td.no  { color: var(--text-3); }
+    table.compare td.us-col { background: rgba(62,207,142,0.04); }
+
+    /* ---------- why now ---------- */
+    .why-now p {
+      font-size: 17px;
+      color: var(--text-1);
+      max-width: 720px;
+    }
+    .why-now .closer {
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 14px;
+      padding-top: 8px;
+      border-top: 1px dashed var(--border-2);
+      display: inline-block;
+      margin-top: 8px;
+    }
+
+    /* ---------- install section ---------- */
+    .install-block {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+      max-width: 760px;
+    }
+    .install-block .cmd-wide {
+      display: block;
+      width: 100%;
+      white-space: nowrap;
+    }
+    .install-fallback {
+      color: var(--text-2);
+      font-size: 14px;
+      font-family: var(--mono);
+    }
+    .install-fallback a { color: var(--text-1); border-bottom: 1px dashed var(--text-3); }
+    .install-fallback a:hover { color: var(--signal); border-bottom-color: var(--signal); }
+    .install-meta {
+      color: var(--text-3);
+      font-size: 12px;
+      font-family: var(--mono);
+      letter-spacing: 0.04em;
+    }
+
+    /* ---------- footer ---------- */
+    footer.site {
+      padding: 36px 0 48px;
+      color: var(--text-2);
+      font-family: var(--mono);
+      font-size: 12.5px;
+    }
+    footer.site .inner {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 16px; flex-wrap: wrap;
+    }
+    footer.site a { color: var(--text-1); }
+    footer.site a:hover { color: var(--signal); }
+
+    /* ---------- responsive ---------- */
+    @media (max-width: 1024px) {
+      .hero h1 { font-size: 46px; }
+      .primitives { grid-template-columns: 1fr 1fr; }
+      .primitives .card:last-child { grid-column: 1 / -1; }
+    }
+    @media (max-width: 640px) {
+      .wrap { padding: 0 20px; }
+      .hero { padding: 64px 0 56px; }
+      .hero h1 { font-size: 34px; }
+      .hero .sub { font-size: 16px; }
+      section { padding: 56px 0; }
+      section h3.headline { font-size: 24px; }
+      .primitives { grid-template-columns: 1fr; }
+      nav.primary { gap: 16px; font-size: 12px; }
+      .cmd { font-size: 12px; padding: 12px 14px; }
+      table.compare th, table.compare td { padding: 10px 12px; font-size: 12px; }
+      table.compare td.row-label { font-size: 13px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== HEADER ===== -->
+  <header class="site">
+    <div class="wrap inner">
+      <div class="wordmark"><span class="glyph">⌁</span>humOS</div>
+      <nav class="primary">
+        <a href="https://github.com/BoluOgunbiyi/humos">GitHub</a>
+        <a href="https://github.com/BoluOgunbiyi/humos#readme">Docs</a>
+        <a href="#install">Install</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ===== HERO ===== -->
+  <section class="hero">
+    <div class="wrap">
+      <div class="kicker">⌁ v0.3.6 · macOS · open source</div>
+      <h1>Unix primitives for <span class="accent">AI agents.</span></h1>
+      <p class="sub">Compose your Claude Code sessions the way Unix composes processes. Locally. On the sessions you already have open.</p>
+      <div class="install-row">
+        <code class="cmd"><span class="prompt">$</span>brew tap BoluOgunbiyi/humos &amp;&amp; brew install --cask humos</code>
+        <a class="cta-secondary" href="#how">See it run ↓</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== PROBLEM ===== -->
+  <section class="problem">
+    <div class="wrap">
+      <p>You're running 5 Claude sessions. One is writing a schema. One is writing tests. One is debugging the API. One is drafting the migration. One is stuck waiting for an answer. <strong>You're the glue. You're the bottleneck.</strong> You paste outputs between windows like it's 1998.</p>
+    </div>
+  </section>
+
+  <!-- ===== PRIMITIVES ===== -->
+  <section id="how">
+    <div class="wrap">
+      <h2>What humOS gives you</h2>
+      <h3 class="headline">Three primitives. That's the whole product.</h3>
+      <div class="primitives">
+        <div class="card">
+          <div class="sig">pipe()</div>
+          <p class="desc">Route output from session A into session B when A goes idle or writes a file. No human in the loop. Fires within 200ms of the idle transition.</p>
+        </div>
+        <div class="card">
+          <div class="sig">signal()</div>
+          <p class="desc">Broadcast a message to every active session with one click. 2-second undo, per-session delivery confirmation, failed targets named by project.</p>
+        </div>
+        <div class="card">
+          <div class="sig">join() <span class="badge">next</span></div>
+          <p class="desc">Wait for multiple sessions to finish, aggregate their outputs. In spec. Ships with the runtime model work.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== HOW IT WORKS ===== -->
+  <section>
+    <div class="wrap">
+      <h2>How it works</h2>
+      <h3 class="headline">No API. No proxy. No new agent to install.</h3>
+      <ol class="steps">
+        <li>humOS watches <code>~/.claude/projects/</code> for live sessions.</li>
+        <li>You set up pipe rules or trigger a signal from the dashboard.</li>
+        <li>humOS injects messages directly into the Claude CLI prompt via Terminal.app.</li>
+        <li>Your sessions coordinate. You review the output.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ===== WHY THIS EXISTS ===== -->
+  <section class="why">
+    <div class="wrap">
+      <h2>Why this exists</h2>
+      <blockquote>Same way Unix gave fork, pipe, signal, and join for process coordination, humOS gives developers primitives to coordinate AI agents at the local machine level.</blockquote>
+      <p class="body">The missing layer isn't a smarter agent. It's the plumbing between the agents you already have. Process coordination was solved in 1973. Agent coordination hasn't been.</p>
+      <div class="closer">▸ Nothing exists at this layer today.</div>
+    </div>
+  </section>
+
+  <!-- ===== COMPARISON ===== -->
+  <section>
+    <div class="wrap">
+      <h2>How it compares</h2>
+      <h3 class="headline">The coordination layer, not another agent.</h3>
+      <div class="table-wrap">
+        <table class="compare">
+          <thead>
+            <tr>
+              <th></th>
+              <th class="us">humOS</th>
+              <th>Conductor</th>
+              <th>opcode</th>
+              <th>claude-control</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="row-label">Observes existing sessions</td>
+              <td class="yes us-col">yes</td>
+              <td class="no">no</td>
+              <td class="no">no</td>
+              <td class="yes">yes</td>
+            </tr>
+            <tr>
+              <td class="row-label">Route session A → session B</td>
+              <td class="yes us-col">yes</td>
+              <td class="no">no</td>
+              <td class="no">no</td>
+              <td class="no">no</td>
+            </tr>
+            <tr>
+              <td class="row-label">Broadcast to all sessions</td>
+              <td class="yes us-col">yes</td>
+              <td class="no">no</td>
+              <td class="no">no</td>
+              <td class="no">no</td>
+            </tr>
+            <tr>
+              <td class="row-label">Works with your existing subscription</td>
+              <td class="yes us-col">yes</td>
+              <td class="no">no</td>
+              <td class="yes">yes</td>
+              <td class="yes">yes</td>
+            </tr>
+            <tr>
+              <td class="row-label">Open source</td>
+              <td class="yes us-col">yes</td>
+              <td class="no">no</td>
+              <td class="yes">yes</td>
+              <td class="yes">yes</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== WHY NOW ===== -->
+  <section class="why-now">
+    <div class="wrap">
+      <h2>Why now</h2>
+      <h3 class="headline">The window is six months.</h3>
+      <p class="body">Claude Code adoption is accelerating. Multi-session workflows are becoming normal. Power users are already running 5, 10, 20 sessions in parallel and manually relaying output between them. The category of "primitives for local agent coordination" does not exist yet. In six months someone else will have built it.</p>
+      <span class="closer">▸ If you're running 5 Claude sessions right now, you are already the target user.</span>
+    </div>
+  </section>
+
+  <!-- ===== INSTALL ===== -->
+  <section id="install">
+    <div class="wrap">
+      <h2>Install</h2>
+      <h3 class="headline">One command. No API key. No account.</h3>
+      <div class="install-block">
+        <code class="cmd cmd-wide"><span class="prompt">$</span>brew tap BoluOgunbiyi/humos &amp;&amp; brew install --cask humos</code>
+        <div class="install-fallback">or grab the .dmg from <a href="https://github.com/BoluOgunbiyi/humos/releases">GitHub Releases</a>.</div>
+        <div class="install-meta">requires macOS 13+ and Terminal.app · 14 fixes shipped in v0.3.5 · MIT licensed</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="site">
+    <div class="wrap inner">
+      <div>humOS is open source · MIT · built by <a href="https://github.com/BoluOgunbiyi">Bolu Ogunbiyi</a>.</div>
+      <div><a href="https://github.com/BoluOgunbiyi/humos">github.com/BoluOgunbiyi/humos</a></div>
+    </div>
+  </footer>
+
+</body>
+</html>

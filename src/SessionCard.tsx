@@ -191,11 +191,17 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
   async function handleSend() {
     if (!message.trim()) return;
     try {
-      await invoke("inject_message", { sessionId: session.id, message: message.trim() });
+      await invoke("inject_message", {
+        sessionId: session.id,
+        message: message.trim(),
+        // Pass cwd as a fallback — session IDs change when Claude CLI
+        // restarts, so the backend can't always find the session in its map.
+        cwd: session.cwd,
+      });
       setMessage("");
       setSendOpen(false);
     } catch (err) {
-      setActionError(`Send failed: ${err}`);
+      setActionError(`${err}`);
       console.error(err);
     }
   }

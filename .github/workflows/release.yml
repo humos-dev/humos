@@ -1,0 +1,74 @@
+# Release humOS — signed & notarized macOS build
+#
+# Triggered by pushing a semver tag (v1.2.3) or manually via the Actions tab.
+# Uses tauri-action to build, sign, notarize, and draft a GitHub Release
+# with the .dmg attached. Review the draft, then hit Publish.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v0.4.0)"
+        required: true
+
+jobs:
+  release:
+    name: Build, sign, notarize, draft release
+    # Apple Silicon runner — matches humOS's primary target audience.
+    runs-on: macos-14
+
+    permissions:
+      contents: write  # needed to create the GitHub Release
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust build cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build, sign, notarize, and draft release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Code signing (Developer ID Application cert exported as .p12, base64-encoded)
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # Notarization (App Store Connect)
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          # Tag to release — uses pushed tag, or the manual input when dispatched.
+          tagName: ${{ github.event.inputs.tag || github.ref_name }}
+          releaseName: "humOS ${{ github.event.inputs.tag || github.ref_name }}"
+          releaseBody: |
+            humOS ${{ github.event.inputs.tag || github.ref_name }}
+
+            Auto-generated notes below — edit before publishing.
+          releaseDraft: true
+          prerelease: false
+          includeRelease: true
+          includeUpdaterJson: false
+          # Auto-generate changelog from commits since the last tag.
+          generateReleaseNotes: true

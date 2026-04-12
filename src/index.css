@@ -339,16 +339,12 @@ body {
 
 /* ── Signal command bar ──────────────────────────────────────── */
 /*
- * Absolute overlay anchored below the header so opening the bar doesn't
- * reflow the session grid (the v0.3.0 layout-shift pain point).
- * Header is 16px+16px padding + ~40px content ≈ 73px tall.
+ * In-flow element that sits between the header and the session grid.
+ * Opens above the grid (pushes cards down 40px) so it doesn't hide
+ * the first row of cards. No absolute overlay. No layout-shift animation
+ * beyond the natural flow change — opening is instant.
  */
 .signal-command-bar {
-  position: absolute;
-  top: 73px;
-  left: 0;
-  right: 0;
-  z-index: 50;
   display: flex;
   align-items: center;
   gap: 8px;
