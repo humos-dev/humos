@@ -165,14 +165,14 @@ pub fn parse_session_file(path: &Path) -> Option<SessionState> {
 
 /// Derive session status from the last message role and file age.
 ///
-/// A session whose last turn was "assistant" is only "running" if the file was
-/// modified recently (within 5 minutes). Older sessions are "idle" — Claude
-/// doesn't silently run for hours without writing to its JSONL file.
+/// Both "running" and "waiting" require the file to have been modified
+/// recently (within 5 minutes). A session whose JSONL hasn't been touched
+/// in hours is dead regardless of what the last role was — the Terminal
+/// tab was likely closed without Claude writing a final entry.
 fn compute_status(last_role: Option<&str>, modified_age_secs: u64) -> String {
     match last_role {
         Some("assistant") if modified_age_secs < 300 => "running".to_string(),
-        Some("assistant") => "idle".to_string(),
-        Some("user") => "waiting".to_string(),
+        Some("user") if modified_age_secs < 300 => "waiting".to_string(),
         _ => "idle".to_string(),
     }
 }
@@ -254,9 +254,12 @@ mod tests {
         assert_eq!(compute_status(Some("assistant"), 10), "running");
         // Old assistant turn (>5 min) → idle (session finished)
         assert_eq!(compute_status(Some("assistant"), 600), "idle");
-        // User turn always waiting regardless of age
+        // Recent user turn → waiting
         assert_eq!(compute_status(Some("user"), 0), "waiting");
-        assert_eq!(compute_status(Some("user"), 9999), "waiting");
+        assert_eq!(compute_status(Some("user"), 60), "waiting");
+        // Old user turn (>5 min) → idle (terminal tab likely closed)
+        assert_eq!(compute_status(Some("user"), 600), "idle");
+        assert_eq!(compute_status(Some("user"), 9999), "idle");
         // No role → idle
         assert_eq!(compute_status(None, 0), "idle");
     }
