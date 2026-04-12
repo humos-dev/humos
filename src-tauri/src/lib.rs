@@ -46,6 +46,11 @@ struct SignalFiredEvent {
     fail_count: usize,
 }
 
+/// Maximum age of session files to load during startup scan.
+/// Files older than this are skipped to keep cold-start fast for users with
+/// months of Claude CLI history.
+const MAX_SESSION_AGE: Duration = Duration::from_secs(30 * 24 * 60 * 60); // 30 days
+
 /// Maximum message length accepted by `signal_sessions`, in characters.
 /// Mirrors the UI limit — enforced server-side so any bypassing caller can't
 /// slip through with a multi-megabyte payload.
@@ -482,23 +487,38 @@ fn walkdir_recursive(dir: &PathBuf) -> Vec<PathBuf> {
 }
 
 /// Scan all existing .jsonl files and load them into the session map.
+/// Only files modified within `MAX_SESSION_AGE` are parsed to keep cold-start fast.
 fn scan_all_sessions(sessions: &SessionMap) {
     let Some(projects_dir) = claude_projects_dir() else {
         log::warn!("Could not find ~/.claude/projects");
         return;
     };
 
+    let cutoff = std::time::SystemTime::now()
+        .checked_sub(MAX_SESSION_AGE)
+        .unwrap_or(std::time::UNIX_EPOCH);
+
     let files = walkdir_recursive(&projects_dir);
     let mut map = sessions.lock().unwrap_or_else(|e| e.into_inner());
+    let mut loaded: usize = 0;
+    let mut skipped: usize = 0;
     for path in files {
         if path.extension().and_then(|e| e.to_str()) != Some("jsonl") {
             continue;
         }
+        // Skip files older than MAX_SESSION_AGE to avoid parsing thousands of
+        // stale sessions on cold start.
+        let mtime = path.metadata().ok().and_then(|m| m.modified().ok());
+        if mtime.map(|m| m < cutoff).unwrap_or(true) {
+            skipped += 1;
+            continue;
+        }
         if let Some(session) = parser::parse_session_file(&path) {
             map.insert(session.id.clone(), session);
+            loaded += 1;
         }
     }
-    log::info!("Initial scan complete: {} sessions loaded", map.len());
+    log::info!("startup: scanned {} sessions ({} skipped as older than 30 days)", loaded, skipped);
 }
 
 /// Path for persisted pipe rules: ~/.humOS/pipe-rules.json

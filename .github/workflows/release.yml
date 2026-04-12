@@ -1,8 +1,12 @@
-# Release humOS — signed & notarized macOS build
+# Release humOS — unsigned macOS build
 #
 # Triggered by pushing a semver tag (v1.2.3) or manually via the Actions tab.
-# Uses tauri-action to build, sign, notarize, and draft a GitHub Release
-# with the .dmg attached. Review the draft, then hit Publish.
+# Uses tauri-action to build and draft a GitHub Release with the .dmg attached.
+# Review the draft, then hit Publish.
+#
+# NOT signed or notarized — no Apple Developer ID required.
+# Users install via Homebrew (handles quarantine removal automatically) or
+# run `xattr -cr /Applications/humOS.app` after manual .dmg install.
 
 name: Release
 
@@ -46,18 +50,13 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build, sign, notarize, and draft release
+      - name: Build and draft release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Code signing (Developer ID Application cert exported as .p12, base64-encoded)
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          # Notarization (App Store Connect)
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # No Apple signing secrets needed — shipping unsigned.
+          # Homebrew `brew install --cask` handles quarantine removal.
+          # Direct .dmg users run: xattr -cr /Applications/humOS.app
         with:
           # Tag to release — uses pushed tag, or the manual input when dispatched.
           tagName: ${{ github.event.inputs.tag || github.ref_name }}
