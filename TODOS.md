@@ -47,7 +47,7 @@ You set the goal. It runs the pipeline. You review the output.
 **Effort:** XL (L with CC) | **Priority:** P2
 
 ### Primitive 5: Task Compiler / DAG Executor
-Describe a high-level goal. Control Room decomposes it into parallel sub-sessions.
+Describe a high-level goal. humOS decomposes it into parallel sub-sessions.
 Manages dependencies — session C waits for A, session B runs immediately.
 Aggregates outputs when all branches complete.
 **Effort:** XL (L with CC) | **Priority:** P2

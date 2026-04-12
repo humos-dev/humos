@@ -1,4 +1,4 @@
-# Claude Control Room
+# humOS
 
 Native macOS Tauri app that monitors all active Claude CLI sessions in real-time.
 
