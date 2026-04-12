@@ -50,24 +50,65 @@ jobs:
       - name: Install frontend dependencies
         run: npm install
 
-      - name: Build and draft release
+      - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # No Apple signing secrets needed — shipping unsigned.
-          # Homebrew `brew install --cask` handles quarantine removal.
-          # Direct .dmg users run: xattr -cr /Applications/humOS.app
         with:
-          # Tag to release — uses pushed tag, or the manual input when dispatched.
           tagName: ${{ github.event.inputs.tag || github.ref_name }}
           releaseName: "humOS ${{ github.event.inputs.tag || github.ref_name }}"
           releaseBody: |
             humOS ${{ github.event.inputs.tag || github.ref_name }}
 
-            Auto-generated notes below — edit before publishing.
+            **Install via Homebrew (recommended):**
+            ```
+            brew tap humos-dev/humos && brew install --cask humos
+            ```
+
+            Or download the `.dmg` below, open it, drag humOS to Applications.
+            Then run: `xattr -cr /Applications/humOS.app`
           releaseDraft: true
           prerelease: false
           includeRelease: true
           includeUpdaterJson: false
-          # Auto-generate changelog from commits since the last tag.
-          generateReleaseNotes: true
+
+      - name: Create proper .dmg from .app bundle
+        run: |
+          VERSION="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION="${VERSION#v}"
+          APP_PATH="src-tauri/target/release/bundle/macos/humOS.app"
+
+          if [ ! -d "$APP_PATH" ]; then
+            echo "App bundle not found at $APP_PATH, searching..."
+            APP_PATH=$(find src-tauri/target -name "humOS.app" -type d | head -1)
+          fi
+
+          if [ -z "$APP_PATH" ] || [ ! -d "$APP_PATH" ]; then
+            echo "ERROR: humOS.app not found"
+            exit 1
+          fi
+
+          echo "Found app at: $APP_PATH"
+          DMG_NAME="humOS_${VERSION}_aarch64_install.dmg"
+
+          # Create a temporary directory for the DMG contents
+          DMG_DIR=$(mktemp -d)
+          cp -R "$APP_PATH" "$DMG_DIR/humOS.app"
+          ln -s /Applications "$DMG_DIR/Applications"
+
+          # Create the .dmg with hdiutil
+          hdiutil create -volname "humOS" \
+            -srcfolder "$DMG_DIR" \
+            -ov -format UDZO \
+            "$DMG_NAME"
+
+          rm -rf "$DMG_DIR"
+          echo "Created: $DMG_NAME ($(du -h "$DMG_NAME" | cut -f1))"
+          echo "DMG_PATH=$DMG_NAME" >> $GITHUB_ENV
+
+      - name: Upload .dmg to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          gh release upload "$TAG" "${{ env.DMG_PATH }}" --clobber
