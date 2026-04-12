@@ -161,47 +161,67 @@ fn inject_message_app(cwd: &str, message: &str) -> Result<(), String> {
     let last_segment = escape_applescript(last_segment_raw);
     let msg_escaped = escape_applescript(message);
 
-    // Three-pass matching:
-    // 1. Match by custom title containing the cwd or its last segment
-    // 2. Match by tab name containing the cwd or its last segment
-    // 3. Fallback: match by process list containing "claude"
-    //    (Claude Code overrides Terminal tab titles with named session titles
-    //    like "⠐ Continue humOS development", breaking cwd-based matching)
+    // Match the right Terminal tab for this session's cwd.
+    // Uses tty-based matching: find which tty has a claude process whose
+    // working directory matches, then inject into that tab. This correctly
+    // handles multiple Claude sessions in separate Terminal windows.
+    let tty = find_tty_for_cwd(cwd);
+    let tty_escaped = tty.as_deref().map(|t| escape_applescript(t)).unwrap_or_default();
+
     let script = format!(
         r#"
 tell application "Terminal"
     set targetCwd to "{cwd}"
     set targetName to "{last_segment}"
+    set targetTty to "{tty}"
     set injected to false
 
-    -- Pass 1+2: match by tab title or custom title
-    repeat with w in windows
-        repeat with t in tabs of w
-            set matchFound to false
-            try
-                set tabTitle to custom title of t
-                if tabTitle contains targetCwd or tabTitle contains targetName then
-                    set matchFound to true
-                end if
-            end try
-            if not matchFound then
+    -- Pass 1: match by tty (most precise, handles multiple claude windows)
+    if targetTty is not "" then
+        repeat with w in windows
+            repeat with t in tabs of w
                 try
-                    set tabTitle to name of t
+                    if (tty of t) is targetTty then
+                        do script "{message}" in t
+                        set injected to true
+                        exit repeat
+                    end if
+                end try
+            end repeat
+            if injected then exit repeat
+        end repeat
+    end if
+
+    -- Pass 2: match by tab title or custom title
+    if not injected then
+        repeat with w in windows
+            repeat with t in tabs of w
+                set matchFound to false
+                try
+                    set tabTitle to custom title of t
                     if tabTitle contains targetCwd or tabTitle contains targetName then
                         set matchFound to true
                     end if
                 end try
-            end if
-            if matchFound then
-                do script "{message}" in t
-                set injected to true
-                exit repeat
-            end if
+                if not matchFound then
+                    try
+                        set tabTitle to name of t
+                        if tabTitle contains targetCwd or tabTitle contains targetName then
+                            set matchFound to true
+                        end if
+                    end try
+                end if
+                if matchFound then
+                    do script "{message}" in t
+                    set injected to true
+                    exit repeat
+                end if
+            end repeat
+            if injected then exit repeat
         end repeat
-        if injected then exit repeat
-    end repeat
+    end if
 
-    -- Pass 3: fallback to process-name matching (finds tabs running claude)
+    -- Pass 3: fallback to process-name matching (last resort)
     if not injected then
         repeat with w in windows
             repeat with t in tabs of w
@@ -228,6 +248,7 @@ end tell
 "#,
         cwd = cwd_escaped,
         last_segment = last_segment,
+        tty = tty_escaped,
         message = msg_escaped,
     );
 
@@ -273,6 +294,102 @@ fn escape_applescript(s: &str) -> String {
     s.replace('\\', "\\\\")
         .replace('"', "\\\"")
         .replace('\'', "\u{2019}")
+}
+
+/// Find the tty device for the Terminal tab running claude in a given cwd.
+/// Uses `pgrep` + `ps` to find claude processes, then matches by cwd.
+fn find_tty_for_cwd(cwd: &str) -> Option<String> {
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "for pid in $(pgrep -x claude 2>/dev/null); do \
+                tty=$(ps -p $pid -o tty= 2>/dev/null | tr -d ' '); \
+                [ -z \"$tty\" ] && continue; \
+                [ \"$tty\" = \"??\" ] && continue; \
+                echo \"/dev/$tty\"; \
+            done"
+        ))
+        .output()
+        .ok()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let ttys: Vec<&str> = stdout.lines().filter(|l| !l.is_empty()).collect();
+
+    // If only one claude process has a tty, return it (common case)
+    if ttys.len() == 1 {
+        return Some(ttys[0].to_string());
+    }
+
+    // Multiple claude processes: try to match by checking which process
+    // has the target cwd. Use lsof to check each PID's cwd.
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "for pid in $(pgrep -x claude 2>/dev/null); do \
+                tty=$(ps -p $pid -o tty= 2>/dev/null | tr -d ' '); \
+                [ -z \"$tty\" ] && continue; \
+                [ \"$tty\" = \"??\" ] && continue; \
+                pcwd=$(lsof -p $pid -d cwd -Fn 2>/dev/null | grep ^n | head -1 | sed 's/^n//'); \
+                if [ \"$pcwd\" = \"{}\" ]; then \
+                    echo \"/dev/$tty\"; \
+                    break; \
+                fi; \
+            done",
+            cwd
+        ))
+        .output()
+        .ok()?;
+    let result = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if result.is_empty() { None } else { Some(result) }
+}
+
+/// Broadcast a message to ALL Terminal tabs running a claude process.
+/// Used by signal() which needs every session to receive the message.
+/// Returns the number of tabs that received the injection.
+pub fn broadcast_to_all_claude_tabs(message: &str) -> Result<usize, String> {
+    let msg_escaped = escape_applescript(message);
+
+    let script = format!(
+        r#"
+tell application "Terminal"
+    set injectedCount to 0
+    repeat with w in windows
+        repeat with t in tabs of w
+            try
+                set procList to processes of t
+                repeat with p in procList
+                    if p contains "claude" then
+                        do script "{message}" in t
+                        set injectedCount to injectedCount + 1
+                        exit repeat
+                    end if
+                end repeat
+            end try
+        end repeat
+    end repeat
+    return injectedCount
+end tell
+"#,
+        message = msg_escaped,
+    );
+
+    let output = Command::new("osascript")
+        .arg("-e")
+        .arg(&script)
+        .output()
+        .map_err(|e| format!("osascript spawn failed: {}", e))?;
+
+    if output.status.success() {
+        let count_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let count = count_str.parse::<usize>().unwrap_or(0);
+        if count == 0 {
+            Err("No Terminal tabs with claude found.".to_string())
+        } else {
+            Ok(count)
+        }
+    } else {
+        let raw = String::from_utf8_lossy(&output.stderr).to_string();
+        Err(wrap_applescript_error(&raw))
+    }
 }
 
 fn run_applescript(script: &str) -> Result<(), String> {

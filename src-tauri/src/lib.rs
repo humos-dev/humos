@@ -101,23 +101,39 @@ async fn signal_sessions(
         return Err("No active sessions.".to_string());
     }
 
-    // AppleScript calls are blocking (~200-500ms each). Offload the inject loop
-    // to the blocking thread pool so we don't tie up a tokio worker for the
-    // full broadcast duration.
+    // Signal broadcasts to ALL Claude terminal tabs at once, not per-session.
+    // This avoids the "first tab wins" bug where per-session inject_message
+    // always hits the same tab when title matching fails.
     let msg_for_blocking = sanitized.clone();
     let targets_for_blocking = targets.clone();
     let results: Vec<SignalResult> = tokio::task::spawn_blocking(move || {
-        let mut out = Vec::with_capacity(targets_for_blocking.len());
-        for (id, project, cwd) in targets_for_blocking {
-            let outcome = applescript::inject_message(&cwd, &msg_for_blocking);
-            out.push(SignalResult {
-                session_id: id,
-                project,
-                success: outcome.is_ok(),
-                error: outcome.err(),
-            });
+        let broadcast_result = applescript::broadcast_to_all_claude_tabs(&msg_for_blocking);
+        match broadcast_result {
+            Ok(count) => {
+                log::info!("signal: broadcast to {} terminal tabs", count);
+                // Mark all targeted sessions as successful since the broadcast
+                // injects into every tab with claude, not per-session.
+                targets_for_blocking.iter().map(|(id, project, _cwd)| {
+                    SignalResult {
+                        session_id: id.clone(),
+                        project: project.clone(),
+                        success: true,
+                        error: None,
+                    }
+                }).collect()
+            }
+            Err(e) => {
+                log::error!("signal: broadcast failed: {}", e);
+                targets_for_blocking.iter().map(|(id, project, _cwd)| {
+                    SignalResult {
+                        session_id: id.clone(),
+                        project: project.clone(),
+                        success: false,
+                        error: Some(e.clone()),
+                    }
+                }).collect()
+            }
         }
-        out
     })
     .await
     .map_err(|e| format!("signal broadcast task panicked: {}", e))?;
