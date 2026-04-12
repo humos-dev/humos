@@ -46,6 +46,7 @@ pub fn parse_session_file(path: &Path) -> Option<SessionState> {
     let mut started_at = String::new();
     let mut last_output = String::new();
     let mut tool_count: u32 = 0;
+    let mut recent_tools: Vec<String> = Vec::new();
     let mut last_role: Option<String> = None;
     let mut session_id = filename.clone();
 
@@ -102,12 +103,16 @@ pub fn parse_session_file(path: &Path) -> Option<SessionState> {
                                     .and_then(|n| n.as_str())
                                     .unwrap_or("unknown");
                                 last_output = format!("Running: {}", tool_name);
+                                recent_tools.push(tool_name.to_string());
+                                if recent_tools.len() > 5 {
+                                    recent_tools.remove(0);
+                                }
                             }
                             "text" => {
                                 if let Some(text) = item.get("text").and_then(|t| t.as_str()) {
                                     let trimmed = text.trim();
                                     if !trimmed.is_empty() {
-                                        last_output = truncate(trimmed, 120).to_string();
+                                        last_output = truncate(trimmed, 500).to_string();
                                     }
                                 }
                             }
@@ -152,6 +157,7 @@ pub fn parse_session_file(path: &Path) -> Option<SessionState> {
         status,
         last_output,
         tool_count,
+        recent_tools,
         started_at,
         modified_at,
     })

@@ -155,6 +155,7 @@ const styles: Record<string, React.CSSProperties> = {
 
 export function SessionCard({ session, isSource, isTarget, signalSuccess, signalFail }: Props) {
   const [sendOpen, setSendOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [message, setMessage] = useState("");
   const [summary, setSummary] = useState<string | null>(null);
   const [summarizing, setSummarizing] = useState(false);
@@ -269,9 +270,29 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
         </span>
       </div>
 
-      {/* Last output */}
-      <div style={styles.lastOutput}>
-        {session.last_output || <span style={{ color: "#222" }}>no output yet</span>}
+      {/* Activity (click to expand) */}
+      <div
+        className={`session-card__activity${expanded ? " session-card__activity--expanded" : ""}`}
+        onClick={() => setExpanded((v) => !v)}
+      >
+        <div className="session-card__activity-text">
+          {session.last_output || "no output yet"}
+        </div>
+        {expanded && (
+          <>
+            {session.recent_tools.length > 0 && (
+              <div className="session-card__activity-tools">
+                {session.recent_tools.map((t, i) => (
+                  <span key={i} className="session-card__tool-tag">{t}</span>
+                ))}
+              </div>
+            )}
+            <div className="session-card__activity-meta">
+              Started {formatDateTime(session.started_at).date} · {session.tool_count} tool{session.tool_count !== 1 ? "s" : ""}
+            </div>
+          </>
+        )}
+        <span className="session-card__expand-icon">{expanded ? "▾" : "▸"}</span>
       </div>
 
       {/* Actions — hidden until hover (CSS handles it via session-card__actions) */}

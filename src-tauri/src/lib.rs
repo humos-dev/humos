@@ -178,6 +178,7 @@ pub struct SessionState {
     pub status: String,
     pub last_output: String,
     pub tool_count: u32,
+    pub recent_tools: Vec<String>,
     pub started_at: String,
     pub modified_at: String,
 }
