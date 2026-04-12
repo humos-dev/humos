@@ -10,6 +10,10 @@
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://humos.dev" />
   <link rel="canonical" href="https://humos.dev/" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="humOS: Unix primitives for AI agents" />
+  <meta name="twitter:description" content="pipe(), signal(), join() for your Claude Code sessions. Runs locally. No API costs." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⌁</text></svg>" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -458,13 +462,13 @@
   <!-- ===== HERO ===== -->
   <section class="hero">
     <div class="wrap">
-      <div class="kicker">⌁ v0.4.0 · macOS · open source</div>
+      <div class="kicker">⌁ v0.4.0 · macOS · open source · <a href="https://github.com/humos-dev/humos" target="_blank" rel="noopener noreferrer" style="text-decoration:none"><img src="https://img.shields.io/github/stars/humos-dev/humos?style=flat&color=3ecf8e&labelColor=111111" alt="GitHub stars" style="vertical-align:middle;height:18px" /></a></div>
       <h1>Unix primitives for <span class="accent">AI agents.</span></h1>
-      <p class="sub">Compose your Claude Code sessions the way Unix composes processes. Locally. On the sessions you already have open. Works with Claude Code out of the box. More agents coming.</p>
+      <p class="sub">Route output between your running Claude Code sessions with Unix-style primitives. Runs locally. No API key. No new agent to install.</p>
       <div class="install-row">
         <div class="cmd-wrap">
           <code class="cmd"><span class="prompt">$</span>brew tap humos-dev/humos &amp;&amp; brew install --cask humos</code>
-          <button class="copy-btn" onclick="navigator.clipboard.writeText('brew tap humos-dev/humos && brew install --cask humos').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})" aria-label="Copy install command">Copy</button>
+          <button class="copy-btn" onclick="navigator.clipboard.writeText('brew tap humos-dev/humos && brew install --cask humos').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)}).catch(()=>{this.textContent='Failed';setTimeout(()=>this.textContent='Copy',1500)})" aria-label="Copy install command" aria-live="polite">Copy</button>
         </div>
         <a class="cta-secondary" href="#how">See the primitives ↓</a>
       </div>
@@ -487,7 +491,7 @@
       <div class="primitives">
         <div class="card">
           <div class="sig">pipe()</div>
-          <p class="desc">Route output from session A into session B when A goes idle or writes a file. No human in the loop. Fires within 200ms of the idle transition.</p>
+          <p class="desc">Session A writes a schema. Session B starts writing tests against it. No copy-paste, no tab-switching. Fires within 200ms of A going idle.</p>
         </div>
         <div class="card">
           <div class="sig">signal()</div>
@@ -520,8 +524,8 @@
     <div class="wrap">
       <h2>Why this exists</h2>
       <blockquote>Unix gave fork, pipe, signal, and join for process coordination. humOS gives you the same thing for AI agents.</blockquote>
-      <p class="body">The missing layer isn't a smarter agent. It's the plumbing between the agents you already have. Process coordination was solved in 1973. Agent coordination hasn't been. MIT licensed. Runs locally. No cloud, no API keys.</p>
-      <div class="closer">▸ Nothing exists at this layer today.</div>
+      <p class="body">The missing layer isn't a smarter agent. It's the plumbing between the agents you already have. MIT licensed. Runs locally. No cloud, no API keys.</p>
+      <div class="closer">▸ Process coordination was solved in 1973. Agent coordination hasn't been.</div>
     </div>
   </section>
 
@@ -534,7 +538,7 @@
         <table class="compare">
           <thead>
             <tr>
-              <th scope="col"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">Feature</span></th>
+              <th scope="col"><span style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0">Feature</span></th>
               <th scope="col" class="us">humOS</th>
               <th scope="col">Conductor</th>
               <th scope="col">opcode</th>
@@ -602,7 +606,7 @@
       <div class="install-block">
         <div class="cmd-wrap">
           <code class="cmd cmd-wide"><span class="prompt">$</span>brew tap humos-dev/humos &amp;&amp; brew install --cask humos</code>
-          <button class="copy-btn" onclick="navigator.clipboard.writeText('brew tap humos-dev/humos && brew install --cask humos').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})" aria-label="Copy install command">Copy</button>
+          <button class="copy-btn" onclick="navigator.clipboard.writeText('brew tap humos-dev/humos && brew install --cask humos').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)}).catch(()=>{this.textContent='Failed';setTimeout(()=>this.textContent='Copy',1500)})" aria-label="Copy install command" aria-live="polite">Copy</button>
         </div>
         <div class="install-fallback">or grab the .dmg from <a href="https://github.com/humos-dev/humos/releases" target="_blank" rel="noopener noreferrer">GitHub Releases</a>.</div>
         <div class="install-meta">requires macOS 13+ and Terminal.app (iTerm2 supported) · MIT licensed</div>
