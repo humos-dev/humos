@@ -36,6 +36,7 @@ interface LogEntry {
   id: number;
   text: string;
   ts: string;
+  isError?: boolean;
 }
 
 const LOG_KEY = "humos-activity-log";
@@ -50,8 +51,16 @@ function now(): string {
   });
 }
 
+const LOG_VERSION = "2";
+
 function loadStoredLog(): LogEntry[] {
   try {
+    // Clear stale logs from older versions
+    if (localStorage.getItem("humos-log-version") !== LOG_VERSION) {
+      localStorage.removeItem(LOG_KEY);
+      localStorage.setItem("humos-log-version", LOG_VERSION);
+      return [];
+    }
     const raw = localStorage.getItem(LOG_KEY);
     return raw ? (JSON.parse(raw) as LogEntry[]) : [];
   } catch {
@@ -283,9 +292,11 @@ export default function App() {
   }, [loadSessions, loadPipeRules]);
 
   // Persist activity log to localStorage on every change.
+  // Error entries are shown in-session but NOT persisted — they're transient.
   useEffect(() => {
     try {
-      localStorage.setItem(LOG_KEY, JSON.stringify(log.slice(0, LOG_MAX)));
+      const persistable = log.filter((e) => !e.isError).slice(0, LOG_MAX);
+      localStorage.setItem(LOG_KEY, JSON.stringify(persistable));
     } catch {
       // localStorage unavailable in some Tauri configs — silent fail.
     }
@@ -496,6 +507,7 @@ export default function App() {
             const entry: LogEntry = {
               id: logSeqRef.current++,
               text: `⌁ signal failed for ${failed.length}: ${names}${more}`,
+              isError: true,
               ts: now(),
             };
             return [entry, ...prev].slice(0, LOG_MAX);
