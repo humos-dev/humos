@@ -1,11 +1,18 @@
-/* ── Design tokens ───────────────────────────────────────────── */
+/* ── Design tokens — keep in sync with src/tokens.ts ─────────── */
 :root {
   --bg:          #080808;
+  --bg-1:        #0b0b0b;
+  --bg-2:        #0d0d0d;
   --surface:     #111111;
-  --border:      #1f1f1f;
+  --border:      #1a1a1a;
+  --border-2:    #262626;
   --text:        #e8e8e8;
-  --text-2:      #888888;
+  --text-1:      #bdbdbd;
+  --text-2:      #999999;
+  --text-3:      #777777;
   --signal:      #3ecf8e;
+  --signal-dim:  rgba(62, 207, 142, 0.14);
+  --error:       #f87171;
 }
 
 /* ── Reset ───────────────────────────────────────────────────── */
@@ -43,7 +50,7 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #333;
+  background: var(--border-2);
   border-radius: 3px;
 }
 
@@ -439,4 +446,128 @@ body {
   color: #f87171;
   flex-shrink: 0;
   white-space: nowrap;
+}
+
+/* ── Onboarding empty state ─────────────────────────────────── */
+.onboarding {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}
+
+.onboarding__card {
+  max-width: 480px;
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.onboarding__heading {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.onboarding__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.onboarding__step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.onboarding__step-number {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
+  margin-top: 1px;
+}
+
+.onboarding__step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.onboarding__step-title {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.onboarding__code {
+  display: inline-block;
+  font-family: "SF Mono", "Fira Code", "Fira Mono", Menlo, monospace;
+  font-size: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 10px;
+  color: var(--signal);
+}
+
+.onboarding__skeleton {
+  width: 100%;
+  height: 36px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  animation: onboarding-pulse 2s ease-in-out infinite;
+}
+
+@keyframes onboarding-pulse {
+  0%, 100% { opacity: 0.3; }
+  50%       { opacity: 0.6; }
+}
+
+.onboarding__status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.onboarding__status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--signal);
+  animation: onboarding-pulse 2s ease-in-out infinite;
+}
+
+/* ── Reduced motion ─────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .onboarding__skeleton,
+  .onboarding__status-dot {
+    animation: none;
+    opacity: 0.5;
+  }
+
+  .session-card__dot--running {
+    animation: none;
+  }
+
+  .waveform--active .waveform__bar {
+    animation: none;
+  }
 }

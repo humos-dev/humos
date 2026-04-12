@@ -446,8 +446,8 @@
     <div class="wrap inner">
       <div class="wordmark"><span class="glyph">⌁</span>humOS</div>
       <nav class="primary">
-        <a href="https://github.com/BoluOgunbiyi/humos" target="_blank" rel="noopener noreferrer">GitHub</a>
-        <a href="https://github.com/BoluOgunbiyi/humos#readme" target="_blank" rel="noopener noreferrer">README</a>
+        <a href="https://github.com/humos-dev/humos" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="https://github.com/humos-dev/humos#readme" target="_blank" rel="noopener noreferrer">README</a>
         <a href="#install">Install</a>
       </nav>
     </div>
@@ -460,11 +460,11 @@
     <div class="wrap">
       <div class="kicker">⌁ v0.4.0 · macOS · open source</div>
       <h1>Unix primitives for <span class="accent">AI agents.</span></h1>
-      <p class="sub">Compose your Claude Code sessions the way Unix composes processes. Locally. On the sessions you already have open.</p>
+      <p class="sub">Compose your Claude Code sessions the way Unix composes processes. Locally. On the sessions you already have open. Works with Claude Code out of the box. More agents coming.</p>
       <div class="install-row">
         <div class="cmd-wrap">
-          <code class="cmd"><span class="prompt">$</span>brew tap BoluOgunbiyi/humos &amp;&amp; brew install --cask humos</code>
-          <button class="copy-btn" onclick="navigator.clipboard.writeText('brew tap BoluOgunbiyi/humos && brew install --cask humos').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})" aria-label="Copy install command">Copy</button>
+          <code class="cmd"><span class="prompt">$</span>brew tap humos-dev/humos &amp;&amp; brew install --cask humos</code>
+          <button class="copy-btn" onclick="navigator.clipboard.writeText('brew tap humos-dev/humos && brew install --cask humos').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})" aria-label="Copy install command">Copy</button>
         </div>
         <a class="cta-secondary" href="#how">See the primitives ↓</a>
       </div>
@@ -483,6 +483,7 @@
     <div class="wrap">
       <h2>What humOS gives you</h2>
       <h3 class="headline">Three primitives. That's the whole product.</h3>
+      <p class="body">pipe() and signal() ship today. join(), orchestration, and multi-agent support are next.</p>
       <div class="primitives">
         <div class="card">
           <div class="sig">pipe()</div>
@@ -519,7 +520,7 @@
     <div class="wrap">
       <h2>Why this exists</h2>
       <blockquote>Unix gave fork, pipe, signal, and join for process coordination. humOS gives you the same thing for AI agents.</blockquote>
-      <p class="body">The missing layer isn't a smarter agent. It's the plumbing between the agents you already have. Process coordination was solved in 1973. Agent coordination hasn't been.</p>
+      <p class="body">The missing layer isn't a smarter agent. It's the plumbing between the agents you already have. Process coordination was solved in 1973. Agent coordination hasn't been. MIT licensed. Runs locally. No cloud, no API keys.</p>
       <div class="closer">▸ Nothing exists at this layer today.</div>
     </div>
   </section>
@@ -596,13 +597,14 @@
   <section id="install">
     <div class="wrap">
       <h2>Install</h2>
+      <p class="body" style="margin-bottom: 24px;">Built for developers running 3+ parallel Claude Code sessions on macOS.</p>
       <h3 class="headline">One command. No API key. No account.</h3>
       <div class="install-block">
         <div class="cmd-wrap">
-          <code class="cmd cmd-wide"><span class="prompt">$</span>brew tap BoluOgunbiyi/humos &amp;&amp; brew install --cask humos</code>
-          <button class="copy-btn" onclick="navigator.clipboard.writeText('brew tap BoluOgunbiyi/humos && brew install --cask humos').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})" aria-label="Copy install command">Copy</button>
+          <code class="cmd cmd-wide"><span class="prompt">$</span>brew tap humos-dev/humos &amp;&amp; brew install --cask humos</code>
+          <button class="copy-btn" onclick="navigator.clipboard.writeText('brew tap humos-dev/humos && brew install --cask humos').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})" aria-label="Copy install command">Copy</button>
         </div>
-        <div class="install-fallback">or grab the .dmg from <a href="https://github.com/BoluOgunbiyi/humos/releases" target="_blank" rel="noopener noreferrer">GitHub Releases</a>.</div>
+        <div class="install-fallback">or grab the .dmg from <a href="https://github.com/humos-dev/humos/releases" target="_blank" rel="noopener noreferrer">GitHub Releases</a>.</div>
         <div class="install-meta">requires macOS 13+ and Terminal.app (iTerm2 supported) · MIT licensed</div>
       </div>
     </div>
@@ -614,8 +616,8 @@
   <footer class="site">
     <div class="wrap inner">
       <nav aria-label="Footer">
-        <div>humOS is open source · MIT · built by <a href="https://github.com/BoluOgunbiyi" target="_blank" rel="noopener noreferrer">Bolu Ogunbiyi</a>.</div>
-        <div><a href="https://github.com/BoluOgunbiyi/humos" target="_blank" rel="noopener noreferrer">github.com/BoluOgunbiyi/humos</a></div>
+        <div>humOS is open source. <a href="https://github.com/humos-dev/humos" target="_blank" rel="noopener noreferrer">MIT.</a></div>
+        <div style="font-size: 11px; color: var(--text-3); margin-top: 4px;">Created by <a href="https://github.com/BoluOgunbiyi" target="_blank" rel="noopener noreferrer">Bolu Ogunbiyi</a></div>
       </nav>
     </div>
   </footer>

@@ -40,11 +40,11 @@ You're running four Claude sessions. One is writing a schema. One is writing tes
 **Homebrew (preferred, once the tap is live):**
 
 ```bash
-brew tap BoluOgunbiyi/humos
+brew tap humos-dev/humos
 brew install --cask humos
 ```
 
-**Manual:** download the latest `.dmg` from [GitHub Releases](https://github.com/BoluOgunbiyi/humos/releases), open it, drag humOS to Applications.
+**Manual:** download the latest `.dmg` from [GitHub Releases](https://github.com/humos-dev/humos/releases), open it, drag humOS to Applications.
 
 **Requirements:**
 - macOS 13 or later
@@ -90,7 +90,7 @@ Claude Code adoption is accelerating and multi-session workflows are becoming th
 ## Development
 
 ```bash
-git clone https://github.com/BoluOgunbiyi/humos
+git clone https://github.com/humos-dev/humos
 cd humos
 npm install
 PATH="$HOME/.cargo/bin:$PATH" npm run tauri dev

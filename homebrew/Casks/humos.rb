@@ -5,7 +5,7 @@
 # Copy this file to Casks/humos.rb in that repo on each release.
 #
 # Users install via:
-#   brew tap BoluOgunbiyi/humos
+#   brew tap humos-dev/humos
 #   brew install --cask humos
 #
 # NOTE: Apple Silicon (aarch64) is the primary target for v0.4.0.
@@ -19,7 +19,7 @@ cask "humos" do
   version "0.4.0"
   sha256 :no_check
 
-  url "https://github.com/BoluOgunbiyi/humos/releases/download/v#{version}/humOS_#{version}_aarch64.dmg"
+  url "https://github.com/humos-dev/humos/releases/download/v#{version}/humOS_#{version}_aarch64.dmg"
   name "humOS"
   desc "Unix primitives for AI agent coordination"
   homepage "https://humos.dev"

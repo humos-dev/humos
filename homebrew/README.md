@@ -18,7 +18,7 @@ Run these once, before the first public release:
    ```
 4. Test the tap locally:
    ```
-   brew tap BoluOgunbiyi/humos
+   brew tap humos-dev/humos
    brew install --cask humos
    ```
 

@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { SessionCard } from "./SessionCard";
 import { PipeConfig } from "./PipeConfig";
 import type { SessionState } from "./types";
+import { colors, spacing, fontSize, radius } from "./tokens";
 
 interface SignalFiredEvent {
   message: string;
@@ -134,18 +135,18 @@ function animatePipeLine(
 const styles: Record<string, React.CSSProperties> = {
   app: {
     minHeight: "100vh",
-    background: "var(--bg)",
+    background: colors.bg,
     display: "flex",
     flexDirection: "column",
     paddingBottom: "28px",
   },
   header: {
-    padding: "16px 24px",
-    borderBottom: "1px solid var(--border)",
+    padding: `${spacing.md}px ${spacing.lg}px`,
+    borderBottom: `1px solid ${colors.border}`,
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    background: "#0d0d0d",
+    background: colors.bg2,
   },
   headerLeft: {
     display: "flex",
@@ -153,55 +154,55 @@ const styles: Record<string, React.CSSProperties> = {
     gap: "10px",
   },
   title: {
-    fontSize: "14px",
+    fontSize: fontSize.xl,
     fontWeight: 600,
-    color: "var(--text)",
+    color: colors.text,
     letterSpacing: "0.05em",
     textTransform: "uppercase" as const,
   },
   subtitle: {
-    fontSize: "11px",
-    color: "var(--text-2)",
+    fontSize: fontSize.sm,
+    color: colors.text2,
     marginTop: "2px",
   },
   headerRight: {
     display: "flex",
     alignItems: "center",
-    gap: "8px",
+    gap: `${spacing.sm}px`,
   },
   badge: {
-    background: "#1a1a1a",
-    border: "1px solid var(--border)",
-    borderRadius: "4px",
-    padding: "4px 10px",
-    fontSize: "11px",
-    color: "var(--text-2)",
+    background: colors.border,
+    border: `1px solid ${colors.border}`,
+    borderRadius: radius.sm,
+    padding: `${spacing.xs}px 10px`,
+    fontSize: fontSize.sm,
+    color: colors.text2,
   },
   pipeBtn: {
     background: "transparent",
-    border: "1px solid var(--border)",
-    borderRadius: "4px",
-    padding: "4px 10px",
-    fontSize: "11px",
-    color: "var(--text-2)",
+    border: `1px solid ${colors.border}`,
+    borderRadius: radius.sm,
+    padding: `${spacing.xs}px 10px`,
+    fontSize: fontSize.sm,
+    color: colors.text2,
     cursor: "pointer",
     fontFamily: "inherit",
     letterSpacing: "0.04em",
     transition: "border-color 0.15s, color 0.15s",
   },
   pipeBtnActive: {
-    borderColor: "var(--signal)",
-    color: "var(--signal)",
+    borderColor: colors.signal,
+    color: colors.signal,
   },
   main: {
     flex: 1,
-    padding: "24px",
+    padding: `${spacing.lg}px`,
   },
   grid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
     alignItems: "start",
-    gap: "16px",
+    gap: `${spacing.md}px`,
   },
   empty: {
     display: "flex",
@@ -209,9 +210,9 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     justifyContent: "center",
     height: "60vh",
-    color: "#333",
-    fontSize: "13px",
-    gap: "8px",
+    color: colors.text3,
+    fontSize: fontSize.lg,
+    gap: `${spacing.sm}px`,
   },
 };
 
@@ -685,11 +686,39 @@ export default function App() {
 
       <main style={styles.main}>
         {!loading && sessions.length === 0 ? (
-          <div style={styles.empty}>
-            <div>--</div>
-            <div>No Claude sessions found</div>
-            <div style={{ color: "#222", fontSize: "11px" }}>
-              Sessions appear here when Claude CLI writes to ~/.claude/projects/
+          <div className="onboarding">
+            <div className="onboarding__card">
+              <h1 className="onboarding__heading">Welcome to humOS</h1>
+
+              <div className="onboarding__steps">
+                <div className="onboarding__step">
+                  <span className="onboarding__step-number">1</span>
+                  <div className="onboarding__step-body">
+                    <div className="onboarding__step-title">Open Terminal and start a Claude session</div>
+                    <code className="onboarding__code">claude</code>
+                  </div>
+                </div>
+
+                <div className="onboarding__step">
+                  <span className="onboarding__step-number">2</span>
+                  <div className="onboarding__step-body">
+                    <div className="onboarding__step-title">Come back here — your session appears automatically</div>
+                    <div className="onboarding__skeleton" />
+                  </div>
+                </div>
+
+                <div className="onboarding__step">
+                  <span className="onboarding__step-number">3</span>
+                  <div className="onboarding__step-body">
+                    <div className="onboarding__step-title">Set up your first pipe or signal from the dashboard</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="onboarding__status">
+                <span className="onboarding__status-dot" />
+                Watching ~/.claude/projects/ for sessions…
+              </div>
             </div>
           </div>
         ) : (
