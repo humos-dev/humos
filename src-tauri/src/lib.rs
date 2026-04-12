@@ -221,17 +221,20 @@ fn status_order(s: &str) -> u8 {
     }
 }
 
-/// Tauri command: focus the Terminal window for a session.
+///// Tauri command: focus the Terminal window for a session and bring it to front.
 #[tauri::command]
-fn focus_session(session_id: String, state: State<'_, SessionMap>) -> Result<(), String> {
-    let cwd = {
+fn focus_session(session_id: String, cwd: Option<String>, state: State<'_, SessionMap>) -> Result<(), String> {
+    let resolved_cwd = {
         let map = state.lock().unwrap_or_else(|e| e.into_inner());
-        map.get(&session_id).map(|s| s.cwd.clone())
+        map.get(&session_id)
+            .map(|s| s.cwd.clone())
+            .filter(|c| !c.is_empty())
+            .or_else(|| cwd.filter(|c| !c.is_empty()))
     };
 
-    match cwd {
-        Some(cwd) if !cwd.is_empty() => applescript::focus_terminal(&cwd),
-        _ => Err(format!("Session {} not found or has no cwd", session_id)),
+    match resolved_cwd {
+        Some(cwd) => applescript::focus_terminal(&cwd),
+        None => Err(format!("Session {} not found or has no cwd", session_id)),
     }
 }
 

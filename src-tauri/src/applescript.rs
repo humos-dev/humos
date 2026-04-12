@@ -82,33 +82,51 @@ tell application "Terminal"
     set targetCwd to "{cwd}"
     set targetName to "{last_segment}"
     set found to false
+
+    -- Pass 1: match by window name (most reliable with Claude Code)
     repeat with w in windows
-        repeat with t in tabs of w
-            set matchFound to false
-            try
-                set tabTitle to custom title of t
-                if tabTitle contains targetCwd or tabTitle contains targetName then
-                    set matchFound to true
-                end if
-            end try
-            if not matchFound then
-                try
-                    set tabTitle to name of t
-                    if tabTitle contains targetCwd or tabTitle contains targetName then
-                        set matchFound to true
-                    end if
-                end try
-            end if
-            if matchFound then
-                set selected tab of w to t
+        try
+            set wName to name of w
+            if wName contains targetCwd or wName contains targetName then
                 set index of w to 1
                 activate
                 set found to true
                 exit repeat
             end if
-        end repeat
-        if found then exit repeat
+        end try
     end repeat
+
+    -- Pass 2: match by tab title
+    if not found then
+        repeat with w in windows
+            repeat with t in tabs of w
+                set matchFound to false
+                try
+                    set tabTitle to custom title of t
+                    if tabTitle contains targetCwd or tabTitle contains targetName then
+                        set matchFound to true
+                    end if
+                end try
+                if not matchFound then
+                    try
+                        set tabTitle to name of t
+                        if tabTitle contains targetCwd or tabTitle contains targetName then
+                            set matchFound to true
+                        end if
+                    end try
+                end if
+                if matchFound then
+                    set selected tab of w to t
+                    set index of w to 1
+                    activate
+                    set found to true
+                    exit repeat
+                end if
+            end repeat
+            if found then exit repeat
+        end repeat
+    end if
+
     if not found then
         activate
     end if
@@ -162,37 +180,36 @@ fn inject_message_app(cwd: &str, message: &str) -> Result<(), String> {
     let msg_escaped = escape_applescript(message);
 
     // Match the right Terminal tab for this session's cwd.
-    // Uses tty-based matching: find which tty has a claude process whose
-    // working directory matches, then inject into that tab. This correctly
-    // handles multiple Claude sessions in separate Terminal windows.
-    let tty = find_tty_for_cwd(cwd);
-    let tty_escaped = tty.as_deref().map(|t| escape_applescript(t)).unwrap_or_default();
-
+    // Four-pass matching with increasing fuzziness:
+    // 1. Window name contains cwd or project name (most reliable on macOS,
+    //    window name includes Claude's session title which often has the project)
+    // 2. Tab custom title or name contains cwd/project
+    // 3. Process list contains "claude" (last resort, ambiguous with multiple)
+    // After injection, bring the window to front (focus).
     let script = format!(
         r#"
 tell application "Terminal"
     set targetCwd to "{cwd}"
     set targetName to "{last_segment}"
-    set targetTty to "{tty}"
     set injected to false
 
-    -- Pass 1: match by tty (most precise, handles multiple claude windows)
-    if targetTty is not "" then
-        repeat with w in windows
-            repeat with t in tabs of w
-                try
-                    if (tty of t) is targetTty then
-                        do script "{message}" in t
-                        set injected to true
-                        exit repeat
-                    end if
-                end try
-            end repeat
-            if injected then exit repeat
-        end repeat
-    end if
+    -- Pass 1: match by window name (contains Claude session title/project)
+    repeat with w in windows
+        try
+            set wName to name of w
+            if wName contains targetCwd or wName contains targetName then
+                set t to selected tab of w
+                do script "{message}" in t
+                set selected tab of w to t
+                set index of w to 1
+                activate
+                set injected to true
+                exit repeat
+            end if
+        end try
+    end repeat
 
-    -- Pass 2: match by tab title or custom title
+    -- Pass 2: match by tab custom title or name
     if not injected then
         repeat with w in windows
             repeat with t in tabs of w
@@ -213,6 +230,9 @@ tell application "Terminal"
                 end if
                 if matchFound then
                     do script "{message}" in t
+                    set selected tab of w to t
+                    set index of w to 1
+                    activate
                     set injected to true
                     exit repeat
                 end if
@@ -221,7 +241,7 @@ tell application "Terminal"
         end repeat
     end if
 
-    -- Pass 3: fallback to process-name matching (last resort)
+    -- Pass 3: fallback to process-name matching (ambiguous with multiple)
     if not injected then
         repeat with w in windows
             repeat with t in tabs of w
@@ -230,6 +250,9 @@ tell application "Terminal"
                     repeat with p in procList
                         if p contains "claude" then
                             do script "{message}" in t
+                            set selected tab of w to t
+                            set index of w to 1
+                            activate
                             set injected to true
                             exit repeat
                         end if
@@ -248,7 +271,6 @@ end tell
 "#,
         cwd = cwd_escaped,
         last_segment = last_segment,
-        tty = tty_escaped,
         message = msg_escaped,
     );
 

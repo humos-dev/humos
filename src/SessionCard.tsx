@@ -182,7 +182,7 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
 
   async function handleFocus() {
     try {
-      await invoke("focus_session", { sessionId: session.id });
+      await invoke("focus_session", { sessionId: session.id, cwd: session.cwd });
     } catch (err) {
       setActionError("Focus failed — Terminal window not found");
       console.error(err);
