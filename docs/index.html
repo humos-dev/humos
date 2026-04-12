@@ -504,11 +504,11 @@
       <div class="primitives">
         <div class="card">
           <div class="sig">pipe()</div>
-          <p class="desc">Session A writes a schema. Session B starts writing tests against it. No copy-paste, no tab-switching. Fires within 200ms of A going idle.</p>
+          <p class="desc">Stop pasting between sessions. A writes a schema, B starts testing against it automatically. 200ms from idle to injected.</p>
         </div>
         <div class="card">
           <div class="sig">signal()</div>
-          <p class="desc">Broadcast a message to every active session with one click. 2-second undo, per-session delivery confirmation, failed targets named by project.</p>
+          <p class="desc">Tell all your sessions to stop, pivot, or re-read a file. One broadcast, every session hears it. 2-second undo, per-session delivery confirmation.</p>
         </div>
         <div class="card">
           <div class="sig">join() <span class="badge">next</span></div>
@@ -594,18 +594,25 @@
               <td class="yes">yes</td>
               <td class="yes">yes</td>
             </tr>
+            <tr>
+              <td class="row-label">Linux / Windows</td>
+              <td class="no us-col">no</td>
+              <td class="no">no</td>
+              <td class="yes">yes</td>
+              <td class="yes">yes</td>
+            </tr>
           </tbody>
         </table>
       </div>
     </div>
   </section>
 
-  <!-- ===== WHY NOW ===== -->
+  <!-- ===== STATUS ===== -->
   <section class="why-now">
     <div class="wrap">
-      <h2>Why now</h2>
-      <h3 class="headline">The window is six months.</h3>
-      <p class="body">Multi-session workflows are becoming normal. Power users are already running 5, 10, 20 sessions in parallel and manually relaying output between them. Nobody sells local agent coordination primitives today. In six months someone will.</p>
+      <h2>Status</h2>
+      <h3 class="headline">v0.4.3. Built by one person. MIT licensed.</h3>
+      <p class="body">pipe() and signal() ship today. join() is next. macOS only. Linux and Windows are not planned. If it breaks, <a href="https://github.com/humos-dev/humos/issues" target="_blank" rel="noopener noreferrer" style="color: var(--signal)">file an issue</a>.</p>
       <span class="closer">▸ If you're running 5 Claude sessions right now, you are already the target user.</span>
     </div>
   </section>

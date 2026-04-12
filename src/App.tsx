@@ -612,7 +612,7 @@ export default function App() {
               ...(signalOpen ? styles.pipeBtnActive : {}),
               ...(nonIdleCount === 0 ? { opacity: 0.35, cursor: "not-allowed", filter: "grayscale(1)" } : {}),
             }}
-            title={nonIdleCount === 0 ? "Needs a running or waiting session" : `Broadcast to ${nonIdleCount} session${nonIdleCount !== 1 ? "s" : ""}`}
+            title={nonIdleCount === 0 ? "No active sessions to signal" : `Signal ${nonIdleCount} active session${nonIdleCount !== 1 ? "s" : ""}`}
             onClick={() => {
               if (nonIdleCount === 0) return;
               // Mutual exclusion: opening Signal closes the Pipes drawer.
@@ -635,7 +635,7 @@ export default function App() {
           <input
             ref={signalInputRef}
             className="signal-command-bar__input"
-            placeholder={`Broadcast to ${nonIdleCount} session${nonIdleCount !== 1 ? "s" : ""} — Enter to send, Esc to cancel`}
+            placeholder={`Signal ${nonIdleCount} session${nonIdleCount !== 1 ? "s" : ""} — e.g. "stop", "checkpoint", "re-read config" — Enter to send`}
             aria-label="Signal broadcast message"
             value={signalMessage}
             maxLength={512}
@@ -706,7 +706,7 @@ export default function App() {
                 <div className="onboarding__step">
                   <span className="onboarding__step-number">1</span>
                   <div className="onboarding__step-body">
-                    <div className="onboarding__step-title">Open Terminal and start a Claude session</div>
+                    <div className="onboarding__step-title">Start a Claude session in Terminal</div>
                     <code className="onboarding__code">claude</code>
                   </div>
                 </div>
@@ -714,7 +714,7 @@ export default function App() {
                 <div className="onboarding__step">
                   <span className="onboarding__step-number">2</span>
                   <div className="onboarding__step-body">
-                    <div className="onboarding__step-title">Come back here — your session appears automatically</div>
+                    <div className="onboarding__step-title">Your session appears here automatically</div>
                     <div className="onboarding__skeleton" />
                   </div>
                 </div>
@@ -722,7 +722,7 @@ export default function App() {
                 <div className="onboarding__step">
                   <span className="onboarding__step-number">3</span>
                   <div className="onboarding__step-body">
-                    <div className="onboarding__step-title">Set up your first pipe or signal from the dashboard</div>
+                    <div className="onboarding__step-title">Connect sessions with pipe, or broadcast with signal</div>
                   </div>
                 </div>
               </div>
