@@ -166,8 +166,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: fontSize.xl,
     fontWeight: 600,
     color: colors.text,
-    letterSpacing: "0.05em",
-    textTransform: "uppercase" as const,
+    letterSpacing: "0.02em",
   },
   subtitle: {
     fontSize: fontSize.sm,
@@ -575,7 +574,7 @@ export default function App() {
         </div>
         <div style={styles.headerRight}>
           <div style={styles.badge}>
-            {runningCount > 0 ? `${runningCount} running` : "idle"}
+            {runningCount > 0 ? `${runningCount} running` : "Idle"}
           </div>
           <button
             style={{
