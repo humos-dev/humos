@@ -8,11 +8,11 @@ The 10x insight: Unix gave developers fork, pipe, signal, and join to coordinate
 
 ---
 
-## Screenshots
+## Demo
 
-![humOS dashboard](docs/screenshots/dashboard.png)
+![humOS demo](docs/humos-demo.gif)
 
-![pipe() in action](docs/screenshots/pipe.gif)
+63 sessions detected. Pipes connecting them. Signal broadcasting to all. That's humOS.
 <!-- TODO: record -->
 
 ![signal() broadcast](docs/screenshots/signal.gif)
