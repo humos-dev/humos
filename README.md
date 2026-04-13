@@ -1,8 +1,8 @@
 # humOS — Unix primitives for AI agent coordination
 
-A native macOS app that treats your running Claude CLI sessions like Unix processes you can compose. See every session at a glance, pipe output from one into another, or broadcast a single message to all of them at once.
+A native macOS app that gives you pipe, signal, and join for your running Claude CLI sessions. Route output between sessions automatically. Broadcast a constraint to all of them at once. Stop being the message bus.
 
-Built for developers who run 3 to 20 parallel Claude Code sessions and are tired of tab-switching to relay output between them. Conductor spawns its own sandboxed sessions. opcode reads JSONL files. claude-control shows a dashboard. humOS operates on the real sessions you already have open, and gives you primitives to coordinate them.
+Built for developers who run 3 to 20 parallel Claude Code sessions and are tired of tab-switching to relay context between them. Conductor spawns its own sandboxed sessions. opcode reads JSONL files. claude-control shows a dashboard. humOS operates on the real sessions you already have open, and gives you primitives to coordinate them.
 
 The 10x insight: Unix gave developers fork, pipe, signal, and join to coordinate processes. Nothing equivalent exists for AI agents on your local machine. That's the layer humOS is building.
 
@@ -10,22 +10,30 @@ The 10x insight: Unix gave developers fork, pipe, signal, and join to coordinate
 
 ## Demo
 
-![humOS demo](docs/humos-demo.gif)
+![pipe() in action](docs/humos-pipe-demo.gif)
 
-63 sessions detected. Pipes connecting them. Signal broadcasting to all. That's humOS.
+Session A finishes a schema. pipe() fires. Session B picks it up and writes tests. No human relay.
 <!-- TODO: record -->
 
-![signal() broadcast](docs/screenshots/signal.gif)
+![signal() broadcast](docs/humos-signal-demo.gif)
+
+One message. Every session receives it. Two-second undo in case you didn't mean it.
 <!-- TODO: record -->
 
 ---
 
 ## What it does
 
-- **Session dashboard.** Real-time view of every Claude CLI session on your machine, with project name, working directory, status (running, waiting, idle), tool call count, and last output line. Sessions update live via file watcher on `~/.claude/projects`.
 - **`pipe()`.** Route output from session A to session B automatically. When A goes idle or writes a file matching a glob, a message drops into B's terminal. No human relay. Rules persist in `~/.humOS/pipe-rules.json` and survive restarts.
 - **`signal()`.** Broadcast a single message to every active session at once. "Abort." "New constraint: don't touch auth.ts." "Pivot, here's the new direction." One click, all sessions receive it. 2-second undo window in case you typed something you shouldn't.
+- **Session dashboard.** Real-time view of every Claude CLI session on your machine, with project name, working directory, status (running, waiting, idle), tool call count, and last output line. Sessions update live via file watcher on `~/.claude/projects`.
 - **Per-card actions.** Focus brings the matching Terminal window to front. Send injects a message into one session. Summarize reads the JSONL, calls `claude -p`, and returns a two-sentence summary as a card overlay.
+
+---
+
+## The product is the primitives
+
+The dashboard is what you see when you open humOS. It's useful on its own — live session status, one-click focus, instant summaries. But it's not the product. The product is what happens when you stop being the message bus between your sessions. pipe() fires and session B starts working without you touching a key. signal() redirects every agent at once. join() (coming) aggregates results when they're all done. The dashboard is the inspector. The primitives are the OS.
 
 ---
 
@@ -68,7 +76,7 @@ That's the primitive. Everything else is variations on it.
 
 ## Status and roadmap
 
-**Shipped (v0.3.6):**
+**Shipped (v0.4.4):**
 - Session dashboard with live file watching
 - `pipe()` with `OnIdle` and `OnFileWrite` triggers, persistence, and pipe-fired animations
 - `signal()` broadcast with undo window, partial-failure reporting, and per-card flash states
