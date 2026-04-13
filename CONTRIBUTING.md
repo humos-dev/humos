@@ -91,7 +91,7 @@ Key frontend files: `App.tsx` (root layout and session polling), `SessionCard.ts
 | `good-first-issue` | Scoped for new contributors |
 | `pipe` | Related to the pipe() primitive |
 | `signal` | Related to the signal() primitive |
-| `distribution` | Packaging, Homebrew, DMG, auto-update |
+| `distribution` | Packaging, Homebrew, ZIP, auto-update |
 
 ---
 

@@ -89,7 +89,7 @@ Cloud-hosted vs on-machine. Write this down explicitly in the plan.
 
 ### Distribution decision
 How does this reach other Claude Code power users?
-Options: Homebrew tap, GitHub releases (.dmg), landing page.
+Options: Homebrew tap, GitHub releases (.zip), landing page.
 Not urgent for v0.1.0 — required before v1.0.
 **Effort:** M | **Priority:** P2
 
@@ -233,7 +233,7 @@ For N>15 sessions, spawn tokio tasks for parallel AppleScript calls. ~2s sequent
 **What to track:** app opens, pipe rules created, pipe fires, signal broadcasts, session count. Counts only, no content, no file paths, no personal data.
 **UX:** First-launch prompt: "Help improve humOS? Anonymous usage stats only. No session content." Accept / Decline. Decline = no telemetry ever. Accept = anonymous counts sent to a simple endpoint.
 **Dashboard metrics:**
-- Weekly installs (Homebrew + .dmg)
+- Weekly installs (Homebrew + .zip)
 - Weekly active users (app opens)
 - Pipe rules created (total)
 - Pipe fires per week

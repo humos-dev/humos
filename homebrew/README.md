@@ -13,7 +13,7 @@ Run these once, before the first public release:
 3. Commit and push:
    ```
    git add Casks/humos.rb
-   git commit -m "Add humos cask v0.4.0"
+   git commit -m "Add humos cask v0.4.4"
    git push
    ```
 4. Test the tap locally:
@@ -26,9 +26,9 @@ Run these once, before the first public release:
 
 Every release, after the GitHub release is published:
 
-1. Download the dmg and compute the sha256:
+1. Download the zip and compute the sha256:
    ```
-   shasum -a 256 humOS_0.4.0_aarch64.dmg
+   shasum -a 256 humOS_0.4.4_aarch64.zip
    ```
 2. In `homebrew-humos/Casks/humos.rb`, update `version` and replace `sha256 :no_check` with the real hash.
 3. Commit and push to the tap repo.

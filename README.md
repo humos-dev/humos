@@ -44,7 +44,7 @@ brew tap humos-dev/humos
 brew install --cask humos
 ```
 
-**Manual:** download the latest `.dmg` from [GitHub Releases](https://github.com/humos-dev/humos/releases), open it, drag humOS to Applications.
+**Manual:** download the latest `.zip` from [GitHub Releases](https://github.com/humos-dev/humos/releases), unzip it, drag humOS to Applications, then run `xattr -cr /Applications/humOS.app`.
 
 **Requirements:**
 - macOS 13 or later

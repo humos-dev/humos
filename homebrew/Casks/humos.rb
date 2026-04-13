@@ -15,11 +15,11 @@
 
 cask "humos" do
   # BUMP `version` every release. Update `sha256` at the same time —
-  # compute with: shasum -a 256 humOS_<version>_aarch64.dmg
-  version "0.4.0"
+  # compute with: shasum -a 256 humOS_<version>_aarch64.zip
+  version "0.4.4"
   sha256 :no_check
 
-  url "https://github.com/humos-dev/humos/releases/download/v#{version}/humOS_#{version}_aarch64.dmg"
+  url "https://github.com/humos-dev/humos/releases/download/v#{version}/humOS_#{version}_aarch64.zip"
   name "humOS"
   desc "Unix primitives for AI agent coordination"
   homepage "https://humos.dev"
@@ -32,6 +32,10 @@ cask "humos" do
   depends_on macos: ">= :ventura"
 
   app "humOS.app"
+
+  postflight do
+    system_command "/usr/bin/xattr", args: ["-cr", "#{appdir}/humOS.app"]
+  end
 
   zap trash: [
     "~/.humOS",

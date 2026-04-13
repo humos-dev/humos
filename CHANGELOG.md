@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.4.4] - 2026-04-12
+
+### Changed
+- **Distribution: DMG to ZIP.** macOS 26 blocks unsigned DMGs entirely. humOS now distributes as a ZIP archive (`humOS_0.4.4_aarch64.zip`). Install: unzip, drag to Applications, run `xattr -cr /Applications/humOS.app`. Build script is now `scripts/build-release.sh` (replaces `scripts/build-dmg.sh`).
+
 ## [0.3.7] - 2026-04-12
 
 ### Fixed
@@ -8,11 +13,11 @@
 - **Signal command bar position**: reverted from absolute overlay to in-flow positioning. The bar now sits between the header and the card grid, pushing cards down 40px when open. This fixes the "input is hiding the first row of cards" bug introduced in v0.3.6. The UX audit flagged "layout shift jarring," but in practice the instant reflow is cleaner than the overlay hiding card content.
 
 ### Added (distribution scaffolding, not yet live)
-- `.github/workflows/release.yml` — `tauri-action` release workflow, triggered by `v*.*.*` tags, builds + signs + notarizes on `macos-14`, drafts a GitHub Release with the .dmg attached. Requires 6 Apple secrets to be added to repo settings before the first release.
+- `.github/workflows/release.yml` — `tauri-action` release workflow, triggered by `v*.*.*` tags, builds + signs + notarizes on `macos-14`, drafts a GitHub Release with the .zip attached. Requires 6 Apple secrets to be added to repo settings before the first release.
 - `docs/RELEASE.md` — release runbook covering prerequisites, the tag-and-push happy path, and three most common failure modes.
 - `README.md` — full rewrite. Positioning pivoted from "session monitor with a v2.0 north star" to "shipped Unix primitives for AI agent coordination." Competitor comparison, install paths, quickstart, and the 10x line now all in the hero.
 - `docs/landing/index.html` — self-contained static landing page for humos.dev. 554 lines of dark-themed HTML+CSS, zero JS, responsive at 640/1024 breakpoints.
-- `homebrew/Casks/humos.rb` — Homebrew cask formula targeting Apple Silicon `.dmg` from GitHub Releases, with zap cleanup and livecheck.
+- `homebrew/Casks/humos.rb` — Homebrew cask formula targeting Apple Silicon `.zip` from GitHub Releases, with zap cleanup and livecheck.
 - `homebrew/README.md` — tap publishing runbook for the separate `homebrew-humos` repo Bolu will create before first release.
 - `LICENSE` — MIT, 2026.
 
