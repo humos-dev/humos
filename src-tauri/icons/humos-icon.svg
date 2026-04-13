@@ -1,10 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
-  <rect width="1024" height="1024" fill="#000000"/>
+  <!-- Transparent background — macOS applies its own mask -->
+  <!-- Solid black rounded rect matching macOS icon shape -->
+  <rect x="0" y="0" width="1024" height="1024" rx="228" ry="228" fill="#0a0a0a"/>
 
+  <!-- Three bars — centered vertically and horizontally -->
   <!-- Left bar -->
-  <rect x="267" y="476" width="130" height="344" rx="20" ry="20" fill="#5fffb8"/>
+  <rect x="287" y="496" width="120" height="310" rx="18" ry="18" fill="#5fffb8"/>
   <!-- Center bar — tallest -->
-  <rect x="447" y="246" width="130" height="574" rx="20" ry="20" fill="#5fffb8"/>
+  <rect x="452" y="266" width="120" height="540" rx="18" ry="18" fill="#5fffb8"/>
   <!-- Right bar -->
-  <rect x="627" y="377" width="130" height="443" rx="20" ry="20" fill="#5fffb8"/>
+  <rect x="617" y="396" width="120" height="410" rx="18" ry="18" fill="#5fffb8"/>
 </svg>
