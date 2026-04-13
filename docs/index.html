@@ -546,7 +546,7 @@
   <!-- ===== HERO ===== -->
   <section class="hero">
     <div class="wrap">
-      <div class="kicker">⌁ v0.4.0 · macOS · open source · <a href="https://github.com/humos-dev/humos" target="_blank" rel="noopener noreferrer" style="text-decoration:none"><img src="https://img.shields.io/github/stars/humos-dev/humos?style=flat&color=3ecf8e&labelColor=111111" alt="GitHub stars" style="vertical-align:middle;height:18px" /></a></div>
+      <div class="kicker">⌁ v0.4.4 · macOS · open source · <a href="https://github.com/humos-dev/humos" target="_blank" rel="noopener noreferrer" style="text-decoration:none"><img src="https://img.shields.io/github/stars/humos-dev/humos?style=flat&color=3ecf8e&labelColor=111111" alt="GitHub stars" style="vertical-align:middle;height:18px" /></a></div>
       <h1>Unix primitives for <span class="accent">AI agents.</span></h1>
       <p class="sub">Route output between your running Claude Code sessions with Unix-style primitives. Runs locally. No API key. No new agent to install.</p>
       <div class="install-row">
@@ -682,7 +682,7 @@
   <section class="why-now">
     <div class="wrap">
       <h2>Status</h2>
-      <h3 class="headline">v0.4.3. Built by one person. MIT licensed.</h3>
+      <h3 class="headline">v0.4.4. Built by one person. MIT licensed.</h3>
       <p class="body">pipe() and signal() ship today. join() is next. macOS only. Linux and Windows are not planned. If it breaks, <a href="https://github.com/humos-dev/humos/issues" target="_blank" rel="noopener noreferrer" style="color: var(--signal)">file an issue</a>.</p>
       <span class="closer">▸ If you're running 5 Claude sessions right now, you are already the target user.</span>
     </div>
@@ -693,14 +693,20 @@
     <div class="wrap">
       <h2>Install</h2>
       <p class="body" style="margin-bottom: 24px;">Built for developers running 3+ parallel Claude Code sessions on macOS.</p>
-      <h3 class="headline">One command. No API key. No account.</h3>
+      <h3 class="headline">Two ways to install. No API key. No account.</h3>
       <div class="install-block">
+        <div style="margin-bottom: 8px; font-family: var(--mono); font-size: 12px; color: var(--signal); text-transform: uppercase; letter-spacing: 0.08em;">Option 1: Homebrew (recommended)</div>
         <div class="cmd-wrap">
           <code class="cmd cmd-wide"><span class="prompt">$ </span>brew tap humos-dev/humos &amp;&amp; brew install --cask humos</code>
           <button class="copy-btn" onclick="navigator.clipboard.writeText('brew tap humos-dev/humos && brew install --cask humos').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)}).catch(()=>{this.textContent='Failed';setTimeout(()=>this.textContent='Copy',1500)})" aria-label="Copy install command" aria-live="polite">Copy</button>
         </div>
-        <div class="install-fallback">or grab the .zip from <a href="https://github.com/humos-dev/humos/releases" target="_blank" rel="noopener noreferrer">GitHub Releases</a> — unzip, drag to Applications, run <code>xattr -cr /Applications/humOS.app</code>.</div>
-        <div class="install-meta" style="margin-top: 16px;">requires macOS 13+ · Terminal.app or iTerm2 · MIT licensed</div>
+        <div style="margin-top: 24px; margin-bottom: 8px; font-family: var(--mono); font-size: 12px; color: var(--signal); text-transform: uppercase; letter-spacing: 0.08em;">Option 2: Download ZIP</div>
+        <div style="color: var(--text-1); font-size: 14.5px; line-height: 1.7;">
+          1. Download <a href="https://github.com/humos-dev/humos/releases/latest" target="_blank" rel="noopener noreferrer" style="color: var(--signal); border-bottom: 1px dashed var(--signal-line);">humOS_0.4.4_aarch64.zip</a> from GitHub Releases<br/>
+          2. Unzip and drag <strong style="color: var(--text);">humOS.app</strong> to Applications<br/>
+          3. Run: <code>xattr -cr /Applications/humOS.app</code>
+        </div>
+        <div class="install-meta" style="margin-top: 20px;">requires macOS 13+ · Apple Silicon · Terminal.app or iTerm2 · MIT licensed</div>
       </div>
     </div>
   </section>

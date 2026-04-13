@@ -37,18 +37,21 @@ You're running four Claude sessions. One is writing a schema. One is writing tes
 
 ## Install
 
-**Homebrew (preferred, once the tap is live):**
+### Option 1: Homebrew (recommended)
 
 ```bash
-brew tap humos-dev/humos
-brew install --cask humos
+brew tap humos-dev/humos && brew install --cask humos
 ```
 
-**Manual:** download the latest `.zip` from [GitHub Releases](https://github.com/humos-dev/humos/releases), unzip it, drag humOS to Applications, then run `xattr -cr /Applications/humOS.app`.
+### Option 2: Download ZIP
+
+1. Download `humOS_0.4.4_aarch64.zip` from [GitHub Releases](https://github.com/humos-dev/humos/releases/latest)
+2. Unzip and drag **humOS.app** to Applications
+3. Run: `xattr -cr /Applications/humOS.app`
 
 **Requirements:**
-- macOS 13 or later
-- Terminal.app (iTerm2 support coming)
+- macOS 13 or later (Apple Silicon)
+- Terminal.app or iTerm2
 - Claude CLI installed and actively in use
 
 ---
