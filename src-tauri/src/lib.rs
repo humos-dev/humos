@@ -198,6 +198,7 @@ pub struct SessionState {
     pub tty: String,
     pub started_at: String,
     pub modified_at: String,
+    pub provider: String,
 }
 
 /// Tauri command: return all known sessions as a sorted Vec.
