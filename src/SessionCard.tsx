@@ -17,6 +17,14 @@ const STATUS_DOT: Record<SessionStatus, { color: string; label: string }> = {
   idle:    { color: "#555",    label: "idle" },
 };
 
+// Per-provider badge appearance. Unknown providers fall back to "?" in a
+// muted tone so new integrations never crash the card.
+const PROVIDER_BADGE: Record<string, { label: string; color: string; border: string; bg: string }> = {
+  claude:  { label: "Claude", color: "#3ecf8e", border: "rgba(62, 207, 142, 0.35)", bg: "rgba(62, 207, 142, 0.08)" },
+  codex:   { label: "Codex",  color: "#a78bfa", border: "rgba(167, 139, 250, 0.35)", bg: "rgba(167, 139, 250, 0.08)" },
+};
+const PROVIDER_FALLBACK = { label: "?", color: "#777", border: "#333", bg: "#1a1a1a" };
+
 const styles: Record<string, React.CSSProperties> = {
   cardHeader: {
     display: "flex",
@@ -240,8 +248,33 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
     <div className={cardClass} data-session-id={session.id}>
       {/* Header */}
       <div style={styles.cardHeader}>
-        <div style={{ flex: 1 }}>
-          <div style={styles.projectName}>{session.project || session.id}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+            <div style={styles.projectName}>{session.project || session.id}</div>
+            {(() => {
+              const badge = PROVIDER_BADGE[session.provider] ?? PROVIDER_FALLBACK;
+              return (
+                <span
+                  title={`Provider: ${session.provider || "unknown"}`}
+                  style={{
+                    fontSize: "9px",
+                    fontWeight: 600,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    color: badge.color,
+                    background: badge.bg,
+                    border: `1px solid ${badge.border}`,
+                    borderRadius: "3px",
+                    padding: "1px 5px",
+                    lineHeight: 1.4,
+                    flexShrink: 0,
+                  }}
+                >
+                  {badge.label}
+                </span>
+              );
+            })()}
+          </div>
           <div style={styles.cwd}>{session.cwd}</div>
         </div>
         {/* Pipe connection dot — no label, just presence */}
