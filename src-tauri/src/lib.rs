@@ -590,27 +590,21 @@ fn load_pipe_rules(mgr: &mut pipe::PipeManager) {
     log::info!("pipe: loaded {} persisted rules from {:?}", count, path);
 }
 
-/// Dispatch a pipe action through the provider registry. Looks up the
-/// target session by id so the right provider handles injection. Falls
-/// back to Claude's cwd-based injection when the session has drifted
-/// (Claude CLI restart invalidates session ids). Pipe rules are
-/// Claude-scoped today, so this preserves the existing ghost-session
-/// resilience.
+/// Dispatch a pipe action. Always uses cwd-based injection so pipe fires
+/// survive stale tty references (tab closed, rearranged, or claude
+/// restarted). Pipe rules are Claude-scoped today; when other providers
+/// gain pipe support we'll route through the registry here.
+///
+/// Tty-based precision injection is reserved for user-initiated actions
+/// (Send button, manual inject) where the tty comes straight from the
+/// currently-displayed session card and is known-fresh. Pipe dispatch is
+/// ambient and a wrong injection is worse than a no-op, so we keep the
+/// fuzzy cwd match that tolerates terminal churn.
 fn dispatch_pipe_action(
-    registry: &ProviderRegistry,
-    sessions: &SessionMap,
+    _registry: &ProviderRegistry,
+    _sessions: &SessionMap,
     action: &pipe::PipeAction,
 ) -> Result<(), String> {
-    let target_session = {
-        let map = sessions.lock().unwrap_or_else(|e| e.into_inner());
-        map.get(&action.to_session_id).cloned()
-    };
-
-    if let Some(session) = target_session {
-        return registry.inject(&session, &action.message);
-    }
-
-    // Session id drift fallback. Keep the old CWD-based inject path.
     applescript::inject_message(&action.target_cwd, &action.message)
 }
 
