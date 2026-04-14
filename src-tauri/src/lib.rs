@@ -17,6 +17,8 @@ use notify_debouncer_mini::{new_debouncer, notify::RecursiveMode, DebounceEventR
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
 
+use providers::{claude::ClaudeProvider, codex::CodexProvider, ProviderRegistry};
+
 /// The shared session state, keyed by session id.
 type SessionMap = Arc<Mutex<HashMap<String, SessionState>>>;
 
@@ -71,6 +73,7 @@ const SIGNAL_MAX_CHARS: usize = 512;
 async fn signal_sessions(
     message: String,
     state: State<'_, SessionMap>,
+    registry: State<'_, Arc<ProviderRegistry>>,
     app: AppHandle,
 ) -> Result<Vec<SignalResult>, String> {
     // Validate and sanitize the message.
@@ -107,8 +110,9 @@ async fn signal_sessions(
     // always hits the same tab when title matching fails.
     let msg_for_blocking = sanitized.clone();
     let targets_for_blocking = targets.clone();
+    let registry_for_blocking = Arc::clone(&registry);
     let results: Vec<SignalResult> = tokio::task::spawn_blocking(move || {
-        let broadcast_result = applescript::broadcast_to_all_claude_tabs(&msg_for_blocking);
+        let broadcast_result = registry_for_blocking.broadcast(&msg_for_blocking);
         match broadcast_result {
             Ok(count) => {
                 log::info!("signal: broadcast to {} terminal tabs", count);
@@ -226,24 +230,27 @@ fn status_order(s: &str) -> u8 {
 
 ///// Tauri command: focus the Terminal window for a session and bring it to front.
 #[tauri::command]
-fn focus_session(session_id: String, cwd: Option<String>, state: State<'_, SessionMap>) -> Result<(), String> {
-    let (resolved_cwd, resolved_tty) = {
+fn focus_session(
+    session_id: String,
+    cwd: Option<String>,
+    state: State<'_, SessionMap>,
+    registry: State<'_, Arc<ProviderRegistry>>,
+) -> Result<(), String> {
+    // Try to find the session in the map and dispatch through the provider.
+    let session_snapshot = {
         let map = state.lock().unwrap_or_else(|e| e.into_inner());
-        let session = map.get(&session_id);
-        let cwd_val = session
-            .map(|s| s.cwd.clone())
-            .filter(|c| !c.is_empty())
-            .or_else(|| cwd.filter(|c| !c.is_empty()));
-        let tty_val = session
-            .map(|s| s.tty.clone())
-            .filter(|t| !t.is_empty());
-        (cwd_val, tty_val)
+        map.get(&session_id).cloned()
     };
 
-    match (resolved_cwd, resolved_tty) {
-        (_, Some(tty)) => applescript::focus_terminal_by_tty(&tty),
-        (Some(cwd), _) => applescript::focus_terminal(&cwd),
-        _ => Err(format!("Session {} not found or has no cwd", session_id)),
+    if let Some(session) = session_snapshot {
+        return registry.focus(&session);
+    }
+
+    // Session id drift fallback: if caller supplied a cwd, focus by cwd
+    // through Claude's applescript helpers (backward compatible path).
+    match cwd.filter(|c| !c.is_empty()) {
+        Some(cwd) => applescript::focus_terminal(&cwd),
+        None => Err(format!("Session {} not found or has no cwd", session_id)),
     }
 }
 
@@ -263,6 +270,7 @@ fn inject_message(
     message: String,
     cwd: Option<String>,
     state: State<'_, SessionMap>,
+    registry: State<'_, Arc<ProviderRegistry>>,
 ) -> Result<(), String> {
     // Validate message the same way signal_sessions does — empty strings,
     // over-length, and control characters all cause silent terminal breakage.
@@ -278,26 +286,19 @@ fn inject_message(
         .map(|c| if c.is_control() { ' ' } else { c })
         .collect();
 
-    // Try the session map first, fall back to the cwd the caller passed.
-    let (resolved_cwd, resolved_tty) = {
+    // Look up the session in the map; dispatch through its provider if we
+    // find it. If not (Claude CLI restart = new session id), fall back to
+    // Claude's cwd-based injection path for backward compatibility.
+    let session_snapshot = {
         let map = state.lock().unwrap_or_else(|e| e.into_inner());
-        let session = map.get(&session_id);
-        let cwd_val = session
-            .map(|s| s.cwd.clone())
-            .filter(|c| !c.is_empty())
-            .or_else(|| cwd.filter(|c| !c.is_empty()));
-        let tty_val = session
-            .map(|s| s.tty.clone())
-            .filter(|t| !t.is_empty());
-        (cwd_val, tty_val)
+        map.get(&session_id).cloned()
     };
 
-    // If we have a tty, inject directly by tty (most precise).
-    if let Some(tty) = resolved_tty {
-        return applescript::inject_by_tty(&tty, &sanitized);
+    if let Some(session) = session_snapshot {
+        return registry.inject(&session, &sanitized);
     }
 
-    match resolved_cwd {
+    match cwd.filter(|c| !c.is_empty()) {
         Some(cwd) => applescript::inject_message(&cwd, &sanitized),
         None => Err(format!(
             "Session {} not found. If Claude CLI was restarted, the session ID changed; humOS will recover on the next rescan.",
@@ -527,37 +528,15 @@ fn walkdir_recursive(dir: &PathBuf) -> Vec<PathBuf> {
 
 /// Scan all existing .jsonl files and load them into the session map.
 /// Only files modified within `MAX_SESSION_AGE` are parsed to keep cold-start fast.
-fn scan_all_sessions(sessions: &SessionMap) {
-    let Some(projects_dir) = claude_projects_dir() else {
-        log::warn!("Could not find ~/.claude/projects");
-        return;
-    };
-
-    let cutoff = std::time::SystemTime::now()
-        .checked_sub(MAX_SESSION_AGE)
-        .unwrap_or(std::time::UNIX_EPOCH);
-
-    let files = walkdir_recursive(&projects_dir);
+fn scan_all_sessions(sessions: &SessionMap, registry: &ProviderRegistry) {
+    let scanned = registry.scan_all(MAX_SESSION_AGE);
     let mut map = sessions.lock().unwrap_or_else(|e| e.into_inner());
     let mut loaded: usize = 0;
-    let mut skipped: usize = 0;
-    for path in files {
-        if path.extension().and_then(|e| e.to_str()) != Some("jsonl") {
-            continue;
-        }
-        // Skip files older than MAX_SESSION_AGE to avoid parsing thousands of
-        // stale sessions on cold start.
-        let mtime = path.metadata().ok().and_then(|m| m.modified().ok());
-        if mtime.map(|m| m < cutoff).unwrap_or(true) {
-            skipped += 1;
-            continue;
-        }
-        if let Some(session) = parser::parse_session_file(&path) {
-            map.insert(session.id.clone(), session);
-            loaded += 1;
-        }
+    for session in scanned {
+        map.insert(session.id.clone(), session);
+        loaded += 1;
     }
-    log::info!("startup: scanned {} sessions ({} skipped as older than 30 days)", loaded, skipped);
+    log::info!("startup: scanned {} sessions across all providers", loaded);
 }
 
 /// Path for persisted pipe rules: ~/.humOS/pipe-rules.json
@@ -611,36 +590,53 @@ fn load_pipe_rules(mgr: &mut pipe::PipeManager) {
     log::info!("pipe: loaded {} persisted rules from {:?}", count, path);
 }
 
+/// Dispatch a pipe action through the provider registry. Looks up the
+/// target session by id so the right provider handles injection. Falls
+/// back to Claude's cwd-based injection when the session has drifted
+/// (Claude CLI restart invalidates session ids) — pipe rules are
+/// Claude-scoped today, so this preserves the existing ghost-session
+/// resilience.
+fn dispatch_pipe_action(
+    registry: &ProviderRegistry,
+    sessions: &SessionMap,
+    action: &pipe::PipeAction,
+) -> Result<(), String> {
+    let target_session = {
+        let map = sessions.lock().unwrap_or_else(|e| e.into_inner());
+        map.get(&action.to_session_id).cloned()
+    };
+
+    if let Some(session) = target_session {
+        return registry.inject(&session, &action.message);
+    }
+
+    // Session id drift fallback — keep the old CWD-based inject path.
+    applescript::inject_message(&action.target_cwd, &action.message)
+}
+
 /// Background thread: re-scan sessions modified in the last 60s and emit updates.
 /// Runs every 5s to catch any files the notify watcher may have missed (large files,
 /// rapid writes, bundled-app sandbox quirks).
-fn start_periodic_rescan(app: AppHandle, sessions: SessionMap, pipe_manager: Arc<Mutex<pipe::PipeManager>>) {
+fn start_periodic_rescan(
+    app: AppHandle,
+    sessions: SessionMap,
+    pipe_manager: Arc<Mutex<pipe::PipeManager>>,
+    registry: Arc<ProviderRegistry>,
+) {
     std::thread::spawn(move || {
         loop {
             std::thread::sleep(Duration::from_secs(5));
-            let Some(projects_dir) = claude_projects_dir() else { continue };
-            let files = walkdir_recursive(&projects_dir);
-            let cutoff = std::time::SystemTime::now()
-                .checked_sub(Duration::from_secs(60))
-                .unwrap_or(std::time::UNIX_EPOCH);
+            // Only reparse sessions modified within the last minute to keep
+            // CPU low — same behavior as before, just via the registry.
+            let recent = registry.scan_all(Duration::from_secs(60));
 
             let mut any_updated = false;
-            for path in files {
-                if path.extension().and_then(|e| e.to_str()) != Some("jsonl") {
-                    continue;
-                }
-                // Only reparse recently-modified files to keep CPU low.
-                let mtime = path.metadata().ok().and_then(|m| m.modified().ok());
-                if mtime.map(|m| m < cutoff).unwrap_or(true) {
-                    continue;
-                }
-                if let Some(session) = parser::parse_session_file(&path) {
-                    let mut map = sessions.lock().unwrap_or_else(|e| e.into_inner());
-                    map.insert(session.id.clone(), session.clone());
-                    drop(map);
-                    let _ = app.emit("session-updated", &session);
-                    any_updated = true;
-                }
+            for session in recent {
+                let mut map = sessions.lock().unwrap_or_else(|e| e.into_inner());
+                map.insert(session.id.clone(), session.clone());
+                drop(map);
+                let _ = app.emit("session-updated", &session);
+                any_updated = true;
             }
 
             // Evaluate pipe rules after the rescan so OnIdle transitions that
@@ -649,7 +645,7 @@ fn start_periodic_rescan(app: AppHandle, sessions: SessionMap, pipe_manager: Arc
             if any_updated {
                 let actions = pipe::evaluate_pipes(&pipe_manager, &sessions);
                 for action in actions {
-                    let inject_result = applescript::inject_message(&action.target_cwd, &action.message);
+                    let inject_result = dispatch_pipe_action(&registry, &sessions, &action);
                     let (success, error_msg) = match &inject_result {
                         Ok(()) => (true, None),
                         Err(e) => {
@@ -677,15 +673,19 @@ fn start_watcher(
     app: AppHandle,
     sessions: SessionMap,
     pipe_manager: Arc<Mutex<pipe::PipeManager>>,
+    registry: Arc<ProviderRegistry>,
 ) {
-    let Some(projects_dir) = claude_projects_dir() else {
-        log::warn!("File watcher: could not determine ~/.claude/projects");
+    let watch_paths = registry.all_watch_paths();
+    if watch_paths.is_empty() {
+        log::warn!("File watcher: no providers expose watch paths");
         return;
-    };
+    }
 
     std::thread::spawn(move || {
         let sessions_clone = Arc::clone(&sessions);
         let pipe_manager_clone = Arc::clone(&pipe_manager);
+        let registry_clone = Arc::clone(&registry);
+        let registry_for_debouncer = Arc::clone(&registry_clone);
         let app_clone = app.clone();
 
         let mut debouncer = new_debouncer(
@@ -695,10 +695,7 @@ fn start_watcher(
                     Ok(events) => {
                         for event in events {
                             let path: &std::path::Path = event.path.as_path();
-                            if path.extension().and_then(|e| e.to_str()) != Some("jsonl") {
-                                continue;
-                            }
-                            if let Some(session) = parser::parse_session_file(path) {
+                            if let Some(session) = registry_for_debouncer.parse_changed_file(path) {
                                 let id = session.id.clone();
                                 let old_state = {
                                     let mut map = sessions_clone.lock().unwrap_or_else(|e| e.into_inner());
@@ -724,7 +721,7 @@ fn start_watcher(
                                 // Evaluate pipe rules and fire any triggered actions.
                                 let actions = pipe::evaluate_pipes(&pipe_manager_clone, &sessions_clone);
                                 for action in actions {
-                                    let inject_result = applescript::inject_message(&action.target_cwd, &action.message);
+                                    let inject_result = dispatch_pipe_action(&registry_clone, &sessions_clone, &action);
                                     let (success, error_msg) = match &inject_result {
                                         Ok(()) => (true, None),
                                         Err(e) => {
@@ -753,12 +750,13 @@ fn start_watcher(
         )
         .expect("Failed to create debouncer");
 
-        debouncer
-            .watcher()
-            .watch(&projects_dir, RecursiveMode::Recursive)
-            .expect("Failed to watch ~/.claude/projects");
-
-        log::info!("File watcher started on {:?}", projects_dir);
+        for dir in &watch_paths {
+            if let Err(e) = debouncer.watcher().watch(dir, RecursiveMode::Recursive) {
+                log::error!("File watcher: failed to watch {:?}: {}", dir, e);
+            } else {
+                log::info!("File watcher started on {:?}", dir);
+            }
+        }
 
         // Keep the thread alive
         loop {
@@ -774,6 +772,13 @@ pub fn run() {
     let sessions: SessionMap = Arc::new(Mutex::new(HashMap::new()));
     let pipe_manager: Arc<Mutex<pipe::PipeManager>> = Arc::new(Mutex::new(pipe::PipeManager::new()));
 
+    // Build the provider registry. Order matters for parse_changed_file —
+    // ClaudeProvider's owns_path is the most specific, so it goes first.
+    let mut registry = ProviderRegistry::new();
+    registry.register(Box::new(ClaudeProvider::new()));
+    registry.register(Box::new(CodexProvider::new()));
+    let registry: Arc<ProviderRegistry> = Arc::new(registry);
+
     // Load persisted pipe rules before starting watchers.
     {
         let mut mgr = pipe_manager.lock().unwrap_or_else(|e| e.into_inner());
@@ -781,17 +786,31 @@ pub fn run() {
     }
 
     // Initial scan
-    scan_all_sessions(&sessions);
+    scan_all_sessions(&sessions, &registry);
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .manage(sessions.clone())
         .manage(pipe_manager.clone())
-        .setup(move |app| {
-            let handle = app.handle().clone();
-            start_watcher(handle.clone(), Arc::clone(&sessions), Arc::clone(&pipe_manager));
-            start_periodic_rescan(handle, Arc::clone(&sessions), Arc::clone(&pipe_manager));
-            Ok(())
+        .manage(registry.clone())
+        .setup({
+            let registry = Arc::clone(&registry);
+            move |app| {
+                let handle = app.handle().clone();
+                start_watcher(
+                    handle.clone(),
+                    Arc::clone(&sessions),
+                    Arc::clone(&pipe_manager),
+                    Arc::clone(&registry),
+                );
+                start_periodic_rescan(
+                    handle,
+                    Arc::clone(&sessions),
+                    Arc::clone(&pipe_manager),
+                    Arc::clone(&registry),
+                );
+                Ok(())
+            }
         })
         .invoke_handler(tauri::generate_handler![
             get_sessions,
