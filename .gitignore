@@ -5,3 +5,4 @@ dist/
 *.log
 src-tauri/target/
 .gstack/
+.vercel
