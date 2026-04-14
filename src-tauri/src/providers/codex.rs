@@ -35,6 +35,9 @@ impl Provider for CodexProvider {
     }
 
     fn owns_path(&self, path: &Path) -> bool {
+        // Once Codex session files are known, narrow this by extension/subdir.
+        // Conservative default: only claim paths actually under ~/.codex so
+        // ClaudeProvider still matches its own jsonl files first.
         Self::codex_dir().map(|root| path.starts_with(&root)).unwrap_or(false)
     }
 
