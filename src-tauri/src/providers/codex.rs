@@ -51,11 +51,11 @@ impl Provider for CodexProvider {
     }
 
     fn inject(&self, _session: &SessionState, _message: &str) -> Result<(), String> {
-        Err("Codex provider is a stub — inject not yet implemented".into())
+        Err("Codex provider is a stub. Inject not yet implemented.".into())
     }
 
     fn focus(&self, _session: &SessionState) -> Result<(), String> {
-        Err("Codex provider is a stub — focus not yet implemented".into())
+        Err("Codex provider is a stub. Focus not yet implemented.".into())
     }
 
     fn broadcast(&self, _message: &str) -> Result<usize, String> {

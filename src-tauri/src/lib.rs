@@ -593,7 +593,7 @@ fn load_pipe_rules(mgr: &mut pipe::PipeManager) {
 /// Dispatch a pipe action through the provider registry. Looks up the
 /// target session by id so the right provider handles injection. Falls
 /// back to Claude's cwd-based injection when the session has drifted
-/// (Claude CLI restart invalidates session ids) — pipe rules are
+/// (Claude CLI restart invalidates session ids). Pipe rules are
 /// Claude-scoped today, so this preserves the existing ghost-session
 /// resilience.
 fn dispatch_pipe_action(
@@ -610,7 +610,7 @@ fn dispatch_pipe_action(
         return registry.inject(&session, &action.message);
     }
 
-    // Session id drift fallback — keep the old CWD-based inject path.
+    // Session id drift fallback. Keep the old CWD-based inject path.
     applescript::inject_message(&action.target_cwd, &action.message)
 }
 
@@ -627,7 +627,7 @@ fn start_periodic_rescan(
         loop {
             std::thread::sleep(Duration::from_secs(5));
             // Only reparse sessions modified within the last minute to keep
-            // CPU low — same behavior as before, just via the registry.
+            // CPU low, same behavior as before, just via the registry.
             let recent = registry.scan_all(Duration::from_secs(60));
 
             let mut any_updated = false;
@@ -772,7 +772,7 @@ pub fn run() {
     let sessions: SessionMap = Arc::new(Mutex::new(HashMap::new()));
     let pipe_manager: Arc<Mutex<pipe::PipeManager>> = Arc::new(Mutex::new(pipe::PipeManager::new()));
 
-    // Build the provider registry. Order matters for parse_changed_file —
+    // Build the provider registry. Order matters for parse_changed_file:
     // ClaudeProvider's owns_path is the most specific, so it goes first.
     let mut registry = ProviderRegistry::new();
     registry.register(Box::new(ClaudeProvider::new()));
