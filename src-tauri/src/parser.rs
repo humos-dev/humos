@@ -165,6 +165,7 @@ pub fn parse_session_file(path: &Path) -> Option<SessionState> {
         tty,
         started_at,
         modified_at,
+        provider: "claude".to_string(),
     })
 }
 

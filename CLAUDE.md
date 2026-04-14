@@ -1,6 +1,8 @@
 # humOS
 
-Native macOS Tauri app that monitors all active Claude CLI sessions in real-time.
+Coordination runtime for AI agents. Provides pipe/signal/join primitives for multi-agent orchestration.
+
+**Strategy:** See `STRATEGY.md` for the scaling law thesis, latent demand framing, and positioning.
 
 **Stack:** Rust (Tauri v2) + React + TypeScript  
 **Dev:** `PATH="$HOME/.cargo/bin:$PATH" npm run tauri dev`  

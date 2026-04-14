@@ -345,6 +345,7 @@ mod tests {
             tty: String::new(),
             started_at: String::new(),
             modified_at: String::new(),
+            provider: "claude".to_string(),
         }
     }
 

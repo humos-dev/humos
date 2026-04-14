@@ -11,4 +11,5 @@ export interface SessionState {
   tty: string;           // tty device path (e.g. /dev/ttys001), empty if unknown
   started_at: string;   // timestamp of first event
   modified_at: string;  // file last modified timestamp
+  provider: string;     // agent provider id: "claude", "codex", etc.
 }
