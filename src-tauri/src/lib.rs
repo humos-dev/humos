@@ -51,8 +51,12 @@ struct SignalFiredEvent {
 
 /// Maximum age of session files to load during startup scan.
 /// Files older than this are skipped to keep cold-start fast for users with
-/// months of Claude CLI history.
-const MAX_SESSION_AGE: Duration = Duration::from_secs(30 * 24 * 60 * 60); // 30 days
+/// months of Claude CLI history. The startup scan resolves each session's
+/// terminal tty via osascript, which is ~1-2s per session on a busy Mac.
+/// 7 days keeps a heavy user (>100 sessions/month) under 15s cold start.
+/// Older sessions are still searchable, they just won't pre-populate the
+/// dashboard until the periodic rescan catches them.
+const MAX_SESSION_AGE: Duration = Duration::from_secs(7 * 24 * 60 * 60); // 7 days
 
 /// Maximum message length accepted by `signal_sessions`, in characters.
 /// Mirrors the UI limit — enforced server-side so any bypassing caller can't
