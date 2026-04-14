@@ -101,3 +101,55 @@ impl ProviderRegistry {
 
 pub mod claude;
 pub mod codex;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use claude::ClaudeProvider;
+    use codex::CodexProvider;
+
+    #[test]
+    fn registry_registers_providers_in_order() {
+        let mut registry = ProviderRegistry::new();
+        registry.register(Box::new(ClaudeProvider::new()));
+        registry.register(Box::new(CodexProvider::new()));
+        assert_eq!(registry.providers.len(), 2);
+        assert_eq!(registry.providers[0].id(), "claude");
+        assert_eq!(registry.providers[1].id(), "codex");
+        assert_eq!(registry.providers[0].display_name(), "Claude Code");
+    }
+
+    #[test]
+    fn registry_collects_watch_paths_from_claude() {
+        let mut registry = ProviderRegistry::new();
+        registry.register(Box::new(ClaudeProvider::new()));
+        let paths = registry.all_watch_paths();
+        assert!(paths.iter().any(|p| p.ends_with("projects")));
+    }
+
+    #[test]
+    fn dispatch_for_unknown_provider_errors() {
+        let registry = ProviderRegistry::new();
+        let session = SessionState {
+            id: "s".into(),
+            project: "p".into(),
+            cwd: "/tmp".into(),
+            status: "idle".into(),
+            last_output: String::new(),
+            tool_count: 0,
+            recent_tools: Vec::new(),
+            tty: String::new(),
+            started_at: String::new(),
+            modified_at: String::new(),
+            provider: "nonexistent".into(),
+        };
+        assert!(registry.inject(&session, "hi").is_err());
+        assert!(registry.focus(&session).is_err());
+    }
+
+    #[test]
+    fn empty_registry_broadcast_errors() {
+        let registry = ProviderRegistry::new();
+        assert!(registry.broadcast("hi").is_err());
+    }
+}
