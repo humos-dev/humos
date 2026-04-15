@@ -31,9 +31,3 @@ glob = "0.3"
 [dev-dependencies]
 tempfile = "3"
 
-[profile.dev]
-incremental = true
-
-[profile.release]
-panic = "abort"
-codegen-units = 1

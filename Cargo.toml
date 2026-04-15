@@ -1,0 +1,10 @@
+[workspace]
+members = ["src-tauri", "humos-daemon"]
+resolver = "2"
+
+[profile.dev]
+incremental = true
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
