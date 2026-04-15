@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.5] - 2026-04-15
+
+### Changed
+- **README and landing page repositioned around primitives.** Hero now leads with "pipe, signal, and (soon) join for your running Claude CLI sessions. Stop being the message bus." The dashboard is the inspector. The primitives are the OS. Copy consistent across README and `docs/index.html`.
+- **Removed speculative framing from README.** "Why now" section trimmed from competitive-window language to a user-facing observation. "10x insight" pitch-deck phrasing removed from the intro.
+
+### Added
+- **Demo GIFs** (`docs/humos-demo.gif`, `humos-pipe-demo.gif`, `humos-signal-demo.gif`) — animated captures of the dashboard, pipe rules panel, and signal broadcast input. Referenced from README.
+
+### Removed
+- `STRATEGY.md` removed from tracking. Strategic planning belongs in private notes, not a public repo.
+
 ## [0.4.4] - 2026-04-12
 
 ### Changed
@@ -16,7 +28,7 @@
 - `.github/workflows/release.yml` — `tauri-action` release workflow, triggered by `v*.*.*` tags, builds + signs + notarizes on `macos-14`, drafts a GitHub Release with the .zip attached. Requires 6 Apple secrets to be added to repo settings before the first release.
 - `docs/RELEASE.md` — release runbook covering prerequisites, the tag-and-push happy path, and three most common failure modes.
 - `README.md` — full rewrite. Positioning pivoted from "session monitor with a v2.0 north star" to "shipped Unix primitives for AI agent coordination." Competitor comparison, install paths, quickstart, and the 10x line now all in the hero.
-- `docs/landing/index.html` — self-contained static landing page for humos.dev. 554 lines of dark-themed HTML+CSS, zero JS, responsive at 640/1024 breakpoints.
+- `docs/index.html` — self-contained static landing page for humos.dev. Dark-themed HTML+CSS, zero JS, responsive at 640/1024 breakpoints.
 - `homebrew/Casks/humos.rb` — Homebrew cask formula targeting Apple Silicon `.zip` from GitHub Releases, with zap cleanup and livecheck.
 - `homebrew/README.md` — tap publishing runbook for the separate `homebrew-humos` repo Bolu will create before first release.
 - `LICENSE` — MIT, 2026.

@@ -6,3 +6,5 @@ dist/
 src-tauri/target/
 .gstack/
 .vercel
+STRATEGY.md
+humos-private/

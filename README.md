@@ -1,10 +1,10 @@
 # humOS — Unix primitives for AI agent coordination
 
-A native macOS app that gives you pipe, signal, and join for your running Claude CLI sessions. Route output between sessions automatically. Broadcast a constraint to all of them at once. Stop being the message bus.
+A native macOS app that gives you pipe, signal, and (soon) join for your running Claude CLI sessions. Route output between sessions automatically. Broadcast a constraint to all of them at once. Stop being the message bus.
 
 Built for developers who run 3 to 20 parallel Claude Code sessions and are tired of tab-switching to relay context between them. Conductor spawns its own sandboxed sessions. opcode reads JSONL files. claude-control shows a dashboard. humOS operates on the real sessions you already have open, and gives you primitives to coordinate them.
 
-The 10x insight: Unix gave developers fork, pipe, signal, and join to coordinate processes. Nothing equivalent exists for AI agents on your local machine. That's the layer humOS is building.
+Unix gave developers fork, pipe, signal, and join to coordinate processes. Nothing equivalent exists for AI agents on your local machine. humOS is that layer.
 
 ---
 
@@ -13,12 +13,10 @@ The 10x insight: Unix gave developers fork, pipe, signal, and join to coordinate
 ![pipe() in action](docs/humos-pipe-demo.gif)
 
 Session A finishes a schema. pipe() fires. Session B picks it up and writes tests. No human relay.
-<!-- TODO: record -->
 
 ![signal() broadcast](docs/humos-signal-demo.gif)
 
 One message. Every session receives it. Two-second undo in case you didn't mean it.
-<!-- TODO: record -->
 
 ---
 
@@ -94,7 +92,7 @@ Full backlog and primitive specs live in [`TODOS.md`](TODOS.md).
 
 ## Why now
 
-Claude Code adoption is accelerating and multi-session workflows are becoming the default way power users work. The window to define what "coordination layer for local AI agents" means is open right now and it's maybe six months wide before someone else claims it. If you're already running four Claude sessions in parallel and acting as the message bus between them, you're already the target user.
+Multi-session workflows are becoming the default way power users run Claude Code. If you're already running four sessions in parallel and acting as the message bus between them, you're the target user.
 
 ---
 

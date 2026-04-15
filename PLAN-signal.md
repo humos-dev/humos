@@ -1,4 +1,3 @@
-<!-- /autoplan restore point: /Users/boluwatifeogunbiyi/.gstack/projects/BoluOgunbiyi-claude-control-room/main-autoplan-restore-20260411-142632.md -->
 # Plan: signal() — Broadcast to All Running Sessions
 
 **Branch:** main | **Feature:** signal() | **Priority:** P1 (Primitive 2)
