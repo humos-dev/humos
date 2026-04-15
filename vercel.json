@@ -1,6 +1,6 @@
 {
-  "buildCommand": null,
-  "outputDirectory": "docs",
-  "framework": null,
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD ./docs"
+  "buildCommand": "mkdir -p .vercel-output && cp -R docs/* .vercel-output/",
+  "outputDirectory": ".vercel-output",
+  "installCommand": "echo skip",
+  "framework": null
 }
