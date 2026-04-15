@@ -634,7 +634,7 @@ export default function App() {
           <input
             ref={signalInputRef}
             className="signal-command-bar__input"
-            placeholder={`Signal ${nonIdleCount} session${nonIdleCount !== 1 ? "s" : ""} — e.g. "stop", "checkpoint", "re-read config" — Enter to send`}
+            placeholder={`Signal ${nonIdleCount} session${nonIdleCount !== 1 ? "s" : ""} (e.g. "stop", "checkpoint", "re-read config"). Enter to send`}
             aria-label="Signal broadcast message"
             value={signalMessage}
             maxLength={512}
@@ -659,7 +659,7 @@ export default function App() {
           )}
           {signalPending && (
             <span className="signal-command-bar__toast">
-              Queued for {nonIdleCount} session{nonIdleCount !== 1 ? "s" : ""} —{" "}
+              Queued for {nonIdleCount} session{nonIdleCount !== 1 ? "s" : ""} -{" "}
               <button
                 className="signal-command-bar__cancel"
                 onClick={handleSignalCancel}

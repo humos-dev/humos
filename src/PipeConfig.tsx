@@ -143,7 +143,7 @@ export function PipeConfig({ sessions, rules, onRulesChanged, onClose }: Props) 
             value={fromId}
             onChange={(e) => setFromId(e.target.value)}
           >
-            <option value="">— source —</option>
+            <option value="">source</option>
             {sessions.map((s) => (
               <option key={s.id} value={s.id}>{sessionLabel(s)}</option>
             ))}
@@ -158,7 +158,7 @@ export function PipeConfig({ sessions, rules, onRulesChanged, onClose }: Props) 
             value={toId}
             onChange={(e) => setToId(e.target.value)}
           >
-            <option value="">— target —</option>
+            <option value="">target</option>
             {sessions.map((s) => (
               <option key={s.id} value={s.id}>{sessionLabel(s)}</option>
             ))}
