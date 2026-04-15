@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased], Plan 2 Phase B
+
+### Added
+- **`humos-mcp` crate.** New standalone binary that speaks MCP (Model Context Protocol) JSON-RPC 2.0 over stdio and bridges any MCP-capable AI agent (Claude Code, Codex CLI, Cursor) to the humOS daemon. Ships as Phase B (PR 2 of 4) of Plan 2.
+- **Four MCP tools exposed.** `search_sessions(query, limit)` for keyword search, `list_sessions(cwd?, limit)` for recent sessions (optionally filtered by cwd), `get_project_context(cwd, limit)` for Project Brain (recall past work in the same repo), `humos_health` for daemon status.
+- **`humos-mcp doctor` subcommand.** 4 checks: daemon socket exists, daemon reachable via Ping, tools surface registered, health probe returns. Prints MCP client config snippets for Claude Code, Codex CLI, and Cursor.
+- **Error translation.** Daemon IPC errors propagate to MCP clients as `isError: true` tool results with the problem / cause / fix / docs_url body so the calling agent can surface actionable messages.
+- **README** with copy-paste JSON/TOML config for all three MCP clients.
+
 ## [Unreleased], Plan 2 Phase A
 
 ### Added
@@ -12,7 +21,6 @@
 - **Cargo workspace.** `src-tauri` and `humos-daemon` share a workspace root. `providers` module on `humos_lib` is now public so the daemon can reuse ClaudeProvider for session discovery.
 
 ### Not in this PR (Plan 2 later phases)
-- `humos-mcp` stdio server exposing the IPC protocol as MCP tools (Phase B).
 - humos-app consuming the daemon and the Project Brain ambient ribbon UI (Phase C).
 - Homebrew tap, GitHub release binaries, launchd plist for daemon auto-start (Phase D).
 

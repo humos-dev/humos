@@ -1639,6 +1639,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "humos-mcp"
+version = "0.4.5"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "dirs 5.0.1",
+ "env_logger",
+ "humos-daemon",
+ "log",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+]
+
+[[package]]
 name = "hyper"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
