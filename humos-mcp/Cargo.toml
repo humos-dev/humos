@@ -1,0 +1,30 @@
+[package]
+name = "humos-mcp"
+version = "0.4.5"
+edition = "2021"
+description = "MCP (Model Context Protocol) stdio server that exposes humOS session search, related-context, and health as tools any MCP-capable AI agent can call."
+authors = ["Bolu"]
+
+[[bin]]
+name = "humos-mcp"
+path = "src/main.rs"
+
+[lib]
+name = "humos_mcp"
+path = "src/lib.rs"
+
+[dependencies]
+humos-daemon = { path = "../humos-daemon" }
+
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+log = "0.4"
+env_logger = "0.11"
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+dirs = "5"
+
+[dev-dependencies]
+tempfile = "3"
+chrono = { version = "0.4", features = ["serde"] }
