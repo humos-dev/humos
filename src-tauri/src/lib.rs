@@ -1,7 +1,7 @@
 mod applescript;
 mod parser;
 pub mod pipe;
-mod providers;
+pub mod providers;
 
 use std::collections::HashMap;
 use std::fs;

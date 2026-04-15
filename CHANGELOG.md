@@ -1,5 +1,21 @@
 # Changelog
 
+## [Unreleased], Plan 2 Phase A
+
+### Added
+- **`humos-daemon` crate.** New standalone binary that owns the tantivy session index at `~/.humOS/index/` and serves it over a Unix socket at `~/.humOS/daemon.sock`. Ships as Phase A (PR 1 of 4) of Plan 2: the coordination runtime foundation. Phase B adds the MCP stdio server, Phase C migrates the app to consume the daemon and lights up the Project Brain ribbon, Phase D adds distribution.
+- **Tantivy-backed keyword index.** Full-text search over session content (last_output + tools + project). Schema versioning with auto-rebuild on mismatch. Snippet pre-truncated at 120 chars by the backend. Reader reloads after every commit so writes are visible immediately.
+- **Regex secret redaction.** Scrubs common credential patterns (Anthropic, OpenAI, AWS, GitHub, Slack, bearer tokens, private key blocks) before content enters the index. `HUMOS_INDEX_REDACT=off` disables for debugging. Defense-in-depth, not full DLP, raw JSONL is still on disk.
+- **Newline-delimited JSON IPC.** Protocol over Unix socket supports `ping`, `health`, `search`, `related_context`, `bulk_related_contexts`, `stats`. Every error carries `{problem, cause, fix, docs_url}` so downstream clients can surface actionable messages.
+- **`humos-daemon doctor` subcommand.** 7 preflight checks with fix guidance: config parse, humos home writable, index directory, schema version, socket path, Claude sessions discovery, another-daemon probe.
+- **`~/.humOS/config.toml`.** Optional user config with `exclude_cwds`, `exclude_patterns`, `disable_project_brain`, `scan_days`. Missing file uses defaults.
+- **Cargo workspace.** `src-tauri` and `humos-daemon` share a workspace root. `providers` module on `humos_lib` is now public so the daemon can reuse ClaudeProvider for session discovery.
+
+### Not in this PR (Plan 2 later phases)
+- `humos-mcp` stdio server exposing the IPC protocol as MCP tools (Phase B).
+- humos-app consuming the daemon and the Project Brain ambient ribbon UI (Phase C).
+- Homebrew tap, GitHub release binaries, launchd plist for daemon auto-start (Phase D).
+
 ## [0.4.5] - 2026-04-15
 
 ### Changed
@@ -7,7 +23,7 @@
 - **Removed speculative framing from README.** "Why now" section trimmed from competitive-window language to a user-facing observation. "10x insight" pitch-deck phrasing removed from the intro.
 
 ### Added
-- **Demo GIFs** (`docs/humos-demo.gif`, `humos-pipe-demo.gif`, `humos-signal-demo.gif`) — animated captures of the dashboard, pipe rules panel, and signal broadcast input. Referenced from README.
+- **Demo GIFs** (`docs/humos-demo.gif`, `humos-pipe-demo.gif`, `humos-signal-demo.gif`), animated captures of the dashboard, pipe rules panel, and signal broadcast input. Referenced from README.
 
 ### Removed
 - `STRATEGY.md` removed from tracking. Strategic planning belongs in private notes, not a public repo.
