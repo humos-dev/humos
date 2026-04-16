@@ -100,22 +100,18 @@ impl ProviderRegistry {
 }
 
 pub mod claude;
-pub mod codex;
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use claude::ClaudeProvider;
-    use codex::CodexProvider;
 
     #[test]
-    fn registry_registers_providers_in_order() {
+    fn registry_registers_claude_provider() {
         let mut registry = ProviderRegistry::new();
         registry.register(Box::new(ClaudeProvider::new()));
-        registry.register(Box::new(CodexProvider::new()));
-        assert_eq!(registry.providers.len(), 2);
+        assert_eq!(registry.providers.len(), 1);
         assert_eq!(registry.providers[0].id(), "claude");
-        assert_eq!(registry.providers[1].id(), "codex");
         assert_eq!(registry.providers[0].display_name(), "Claude Code");
     }
 

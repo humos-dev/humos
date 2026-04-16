@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use humos_mcp::ipc_client::IpcClient;
+use humos_client::IpcClient;
 use humos_mcp::mcp::server::run_stdio;
 use humos_mcp::mcp::tools::ToolDispatcher;
 

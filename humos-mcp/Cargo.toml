@@ -15,6 +15,7 @@ path = "src/lib.rs"
 
 [dependencies]
 humos-daemon = { path = "../humos-daemon" }
+humos-client = { path = "../crates/humos-client" }
 
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }

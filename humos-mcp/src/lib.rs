@@ -7,5 +7,4 @@
 //! JSON-RPC responses on stdout.
 
 pub mod doctor;
-pub mod ipc_client;
 pub mod mcp;

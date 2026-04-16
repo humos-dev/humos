@@ -326,6 +326,7 @@ fn escape_applescript(s: &str) -> String {
 
 /// Find the tty device for the Terminal tab running claude in a given cwd.
 /// Uses `pgrep` + `ps` to find claude processes, then matches by cwd.
+#[allow(dead_code)]
 fn find_tty_for_cwd(cwd: &str) -> Option<String> {
     let output = Command::new("sh")
         .arg("-c")

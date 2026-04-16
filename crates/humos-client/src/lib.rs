@@ -1,8 +1,8 @@
-//! Thin client over the daemon's Unix socket IPC.
+//! Thin IPC client over the humos-daemon Unix socket.
 //!
-//! One connection per tool call. Connections are cheap and short-lived.
-//! Keeping a persistent connection would require reconnect-on-error logic
-//! which is out of scope for the MCP phase.
+//! Shared between humos-mcp and the Tauri app. One connection per call —
+//! connections are cheap and short-lived. Callers handle reconnect at a
+//! higher level (poll loop or MCP tool invocation).
 
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixStream;
@@ -11,6 +11,8 @@ use std::time::Duration;
 
 use anyhow::{Context, Result};
 use humos_daemon::ipc::protocol::{Request, Response};
+
+pub use humos_daemon::ipc::protocol::{Request as DaemonRequest, Response as DaemonResponse};
 
 pub struct IpcClient {
     socket_path: PathBuf,
@@ -21,6 +23,7 @@ impl IpcClient {
         Self { socket_path }
     }
 
+    /// Default socket path: ~/.humOS/daemon.sock
     pub fn default_socket() -> PathBuf {
         dirs::home_dir()
             .expect("home directory")
@@ -32,11 +35,16 @@ impl IpcClient {
         &self.socket_path
     }
 
-    /// Send a request and return the single response.
-    /// Blocks up to `timeout` on read.
+    /// Send a request, return the single response.
+    /// Blocks up to `timeout` on both connect and read.
     pub fn call(&self, request: &Request, timeout: Duration) -> Result<Response> {
         let mut stream = UnixStream::connect(&self.socket_path)
-            .with_context(|| format!("connect to humos-daemon at {}", self.socket_path.display()))?;
+            .with_context(|| {
+                format!(
+                    "connect to humos-daemon at {} — is the daemon running? Start with: humos-daemon serve",
+                    self.socket_path.display()
+                )
+            })?;
         stream.set_read_timeout(Some(timeout)).ok();
         stream.set_write_timeout(Some(timeout)).ok();
 
@@ -56,10 +64,21 @@ impl IpcClient {
         Ok(response)
     }
 
+    /// Send a Ping. Returns true if daemon responded with Pong.
     pub fn ping(&self) -> Result<bool> {
         match self.call(&Request::Ping, Duration::from_secs(2))? {
             Response::Pong => Ok(true),
             _ => Ok(false),
+        }
+    }
+
+    /// Check daemon health. Returns (ok, index_sessions, uptime_secs).
+    pub fn health(&self) -> Result<(bool, u64, u64)> {
+        match self.call(&Request::Health, Duration::from_secs(3))? {
+            Response::Health { ok, index_sessions, uptime_secs } => {
+                Ok((ok, index_sessions, uptime_secs))
+            }
+            _ => Ok((false, 0, 0)),
         }
     }
 }

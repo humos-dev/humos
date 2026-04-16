@@ -1,7 +1,28 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { SessionState, SessionStatus } from "./types";
 import { formatDateTime } from "./utils/formatDateTime";
+
+interface RibbonEntry {
+  session_id: string;
+  project: string;
+  cwd: string;
+  snippet: string;
+  modified_at: string;
+}
+
+interface RibbonResult {
+  daemon_online: boolean;
+  is_stale: boolean;
+  entries: RibbonEntry[];
+  total_count: number;
+}
+
+type RibbonState =
+  | { kind: "idle" }
+  | { kind: "loading" }
+  | { kind: "results"; data: RibbonResult }
+  | { kind: "error" };
 
 interface Props {
   session: SessionState;
@@ -9,6 +30,7 @@ interface Props {
   isTarget?: boolean;
   signalSuccess?: boolean;
   signalFail?: boolean;
+  daemonOnline?: boolean;
 }
 
 const STATUS_DOT: Record<SessionStatus, { color: string; label: string }> = {
@@ -161,7 +183,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
 };
 
-export function SessionCard({ session, isSource, isTarget, signalSuccess, signalFail }: Props) {
+export function SessionCard({ session, isSource, isTarget, signalSuccess, signalFail, daemonOnline }: Props) {
   const [sendOpen, setSendOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [message, setMessage] = useState("");
@@ -171,6 +193,9 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
   const [summarizing, setSummarizing] = useState(false);
   const [dots, setDots] = useState(".");
   const [actionError, setActionError] = useState<string | null>(null);
+  const [ribbon, setRibbon] = useState<RibbonState>({ kind: "idle" });
+  const [cardFocused, setCardFocused] = useState(false);
+  const ribbonDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!summarizing) return;
@@ -186,6 +211,27 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
       return () => clearTimeout(t);
     }
   }, [actionError]);
+
+  // Project Brain ribbon: fetch on card focus, 200ms debounce.
+  useEffect(() => {
+    if (ribbonDebounceRef.current) clearTimeout(ribbonDebounceRef.current);
+    if (!cardFocused || !daemonOnline || !session.cwd) {
+      setRibbon({ kind: "idle" });
+      return;
+    }
+    ribbonDebounceRef.current = setTimeout(async () => {
+      setRibbon({ kind: "loading" });
+      try {
+        const result = await invoke<RibbonResult>("get_related_context", { cwd: session.cwd });
+        setRibbon({ kind: "results", data: result });
+      } catch {
+        setRibbon({ kind: "error" });
+      }
+    }, 200);
+    return () => {
+      if (ribbonDebounceRef.current) clearTimeout(ribbonDebounceRef.current);
+    };
+  }, [cardFocused, daemonOnline, session.cwd]);
 
   const statusInfo = STATUS_DOT[session.status];
   const isRunning = session.status === "running";
@@ -245,7 +291,12 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
   ].filter(Boolean).join(" ");
 
   return (
-    <div className={cardClass} data-session-id={session.id}>
+    <div
+      className={cardClass}
+      data-session-id={session.id}
+      onMouseEnter={() => setCardFocused(true)}
+      onMouseLeave={() => { setCardFocused(false); setRibbon({ kind: "idle" }); }}
+    >
       {/* Header */}
       <div style={styles.cardHeader}>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -397,6 +448,55 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
       {actionError && (
         <div style={{ fontSize: "11px", color: "#f87171", marginTop: "-4px" }}>
           {actionError}
+        </div>
+      )}
+
+      {/* Project Brain ribbon — shows on hover when daemon is online */}
+      {cardFocused && daemonOnline && (
+        <div style={{
+          marginTop: "10px",
+          borderTop: "1px solid #1e1e1e",
+          paddingTop: "8px",
+        }}>
+          {ribbon.kind === "loading" && (
+            <div style={{ fontSize: "10px", color: "#444" }}>Loading past sessions...</div>
+          )}
+          {ribbon.kind === "results" && ribbon.data.entries.length === 0 && (
+            <div style={{ fontSize: "10px", color: "#444" }}>
+              No past sessions in this repo.
+            </div>
+          )}
+          {ribbon.kind === "results" && ribbon.data.entries.length > 0 && (
+            <div>
+              <div style={{ fontSize: "9px", color: "#555", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "5px" }}>
+                Project Brain
+                {ribbon.data.is_stale && (
+                  <span style={{ marginLeft: "6px", color: "#5a5a2a" }}>· Updating index...</span>
+                )}
+              </div>
+              {ribbon.data.entries.slice(0, 5).map((entry) => (
+                <div key={entry.session_id} style={{
+                  marginBottom: "5px",
+                  padding: "4px 6px",
+                  background: "#0e0e0e",
+                  borderRadius: "4px",
+                  borderLeft: "2px solid #2a2a2a",
+                }}>
+                  <div style={{ fontSize: "10px", color: "#888", marginBottom: "2px" }}>
+                    {entry.project} · {new Date(entry.modified_at).toLocaleDateString()}
+                  </div>
+                  <div style={{ fontSize: "11px", color: "#aaa", lineHeight: 1.4 }}>
+                    {entry.snippet}
+                  </div>
+                </div>
+              ))}
+              {ribbon.data.total_count > 5 && (
+                <div style={{ fontSize: "10px", color: "#555" }}>
+                  and {ribbon.data.total_count - 5} more
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

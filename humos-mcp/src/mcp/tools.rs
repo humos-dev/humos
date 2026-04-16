@@ -9,7 +9,7 @@ use humos_daemon::ipc::protocol::{Request, Response};
 use serde_json::{json, Value};
 
 use super::protocol::{ToolCallResult, ToolDefinition};
-use crate::ipc_client::IpcClient;
+use humos_client::IpcClient;
 
 const TOOL_TIMEOUT: Duration = Duration::from_secs(10);
 const DEFAULT_LIMIT: usize = 20;
