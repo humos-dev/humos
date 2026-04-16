@@ -1,6 +1,12 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+
+interface DaemonHealth {
+  online: boolean;
+  index_sessions: number;
+  uptime_secs: number;
+}
 import { SessionCard } from "./SessionCard";
 import { PipeConfig } from "./PipeConfig";
 import type { SessionState } from "./types";
@@ -227,6 +233,7 @@ const styles: Record<string, React.CSSProperties> = {
 export default function App() {
   const [sessions, setSessions] = useState<SessionState[]>([]);
   const [loading, setLoading] = useState(true);
+  const [daemonOnline, setDaemonOnline] = useState<boolean | null>(null);
   const [pipeOpen, setPipeOpen] = useState(false);
   const [pipeRules, setPipeRules] = useState<PipeRule[]>([]);
   const [log, setLog] = useState<LogEntry[]>(loadStoredLog);
@@ -267,28 +274,27 @@ export default function App() {
     }
   }, []);
 
+  const checkDaemonHealth = useCallback(async () => {
+    try {
+      const health = await invoke<DaemonHealth>("check_daemon_health");
+      setDaemonOnline(health.online);
+    } catch {
+      setDaemonOnline(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadSessions();
     loadPipeRules();
+    checkDaemonHealth();
 
-    const unlisten = listen<SessionState>("session-updated", (event) => {
-      setSessions((prev) => {
-        const idx = prev.findIndex((s) => s.id === event.payload.id);
-        const next =
-          idx >= 0
-            ? prev.map((s, i) => (i === idx ? event.payload : s))
-            : [...prev, event.payload];
-        sessionsRef.current = next;
-        return next;
-      });
-    });
-
-    const interval = setInterval(loadSessions, 5_000);
+    const sessionInterval = setInterval(loadSessions, 5_000);
+    const healthInterval = setInterval(checkDaemonHealth, 5_000);
     return () => {
-      unlisten.then((f) => f());
-      clearInterval(interval);
+      clearInterval(sessionInterval);
+      clearInterval(healthInterval);
     };
-  }, [loadSessions, loadPipeRules]);
+  }, [loadSessions, loadPipeRules, checkDaemonHealth]);
 
   // Persist activity log to localStorage on every change.
   // Error entries are shown in-session but NOT persisted — they're transient.
@@ -626,6 +632,45 @@ export default function App() {
         </div>
       </header>
 
+      {daemonOnline === false && (
+        <div style={{
+          background: "#1a1200",
+          borderBottom: "1px solid #7a5a00",
+          color: "#f5c842",
+          fontSize: "12px",
+          padding: "6px 16px",
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+        }}>
+          <span style={{ opacity: 0.7 }}>⬡</span>
+          <span>
+            Daemon not running — Project Brain ribbon unavailable.
+            Start with:{" "}
+            <code style={{ fontFamily: "monospace", background: "rgba(255,255,255,0.08)", padding: "1px 5px", borderRadius: "3px" }}>
+              humos-daemon serve
+            </code>
+          </span>
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText("humos-daemon serve").catch(() => {});
+            }}
+            style={{
+              marginLeft: "auto",
+              background: "none",
+              border: "1px solid #7a5a00",
+              color: "#f5c842",
+              borderRadius: "4px",
+              padding: "2px 8px",
+              fontSize: "11px",
+              cursor: "pointer",
+            }}
+          >
+            Copy
+          </button>
+        </div>
+      )}
+
       {signalOpen && (
         <div
           className={`signal-command-bar${signalError ? " signal-command-bar--error" : ""}`}
@@ -742,6 +787,7 @@ export default function App() {
                 isTarget={targetIds.has(session.id)}
                 signalSuccess={signalFlashIds.has(session.id)}
                 signalFail={signalFailIds.has(session.id)}
+                daemonOnline={daemonOnline === true}
               />
             ))}
           </div>

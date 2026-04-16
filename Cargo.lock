@@ -1603,8 +1603,6 @@ dependencies = [
  "env_logger",
  "glob",
  "log",
- "notify",
- "notify-debouncer-mini",
  "serde",
  "serde_json",
  "tauri",
@@ -1612,6 +1610,18 @@ dependencies = [
  "tauri-plugin-shell",
  "tempfile",
  "tokio",
+]
+
+[[package]]
+name = "humos-client"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "dirs 5.0.1",
+ "humos-daemon",
+ "serde",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]
@@ -1647,6 +1657,7 @@ dependencies = [
  "clap",
  "dirs 5.0.1",
  "env_logger",
+ "humos-client",
  "humos-daemon",
  "log",
  "serde",

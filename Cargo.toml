@@ -1,5 +1,5 @@
 [workspace]
-members = ["src-tauri", "humos-daemon", "humos-mcp"]
+members = ["src-tauri", "humos-daemon", "humos-mcp", "crates/humos-client"]
 resolver = "2"
 
 [profile.dev]

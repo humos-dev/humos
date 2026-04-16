@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use humos_daemon::ipc::protocol::{Request, Response};
 
-use crate::ipc_client::IpcClient;
+use humos_client::IpcClient;
 
 pub fn run() -> anyhow::Result<()> {
     println!("humos-mcp doctor\n");

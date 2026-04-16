@@ -1,6 +1,28 @@
 
 ## Feature Ideas (Backlog)
 
+### Dead Session Indicator (Send on Idle)
+**What:** Block the Send button for idle sessions. Instead of silently dropping the message into the shell prompt, show a one-liner with the resume command and a copy button:
+`Session ended. Resume it with: claude --resume <session-id>`
+**Why:** Currently Send fires for all statuses. For idle sessions, Claude has exited — the message lands at the shell prompt and disappears. No error, no feedback. The user has no idea what happened.
+**How:** In `SessionCard.tsx`, detect `session.status === "idle"` on Send click. Show inline callout with the session ID and a copy-to-clipboard button. Grey out or repurpose the Send button label to "Ended" for idle cards.
+**Constraints:** No AppleScript, no resume automation — just surface the right primitive and let the user run it in their terminal. Zero edge cases.
+**Effort:** S | **Priority:** P1
+
+### Session History Toggle ("Show All Sessions")
+**What:** A "History" button in the dashboard header that loads sessions older than the 7-day `MAX_SESSION_AGE` gate. Currently 274 files on disk are invisible to the dashboard.
+**Why:** Users lose access to older sessions with no indication they exist. The 7-day gate was a performance optimisation, not a product decision.
+**How:** Add a `scan_all_sessions` Tauri command that calls `registry.scan_all` with no age cap. Button in header toggles between normal view and full history view. Idle-only sessions from history are visually dimmed to reduce noise.
+**Tradeoffs:** This is a scroll problem, not a search problem. A user with 6 months of history will see hundreds of idle cards. Treat this as a stopgap until Semantic Session Search ships. Ship search before this if capacity allows.
+**Effort:** M | **Priority:** P2
+
+### Resume Primitive (Phase 3)
+**What:** Proper "wake up idle session" flow — inject `claude --resume <session-id>` into the terminal tab, detect when Claude is ready (via JSONL sentinel), then inject the user's message.
+**Why:** The natural follow-on to the Dead Session Indicator. Instead of copying the command, humOS handles the resume + message injection as a single atomic operation.
+**Why not now:** Requires solving three hard problems: (1) JSONL collision — resume appends to the same file humOS is watching, new session ID may not be picked up; (2) startup race — no state gate between "Claude initialised" and "message inject", timer-based sync is fragile; (3) tab exclusivity — must verify cwd isn't already running another session before injecting. All three need the daemon's session tracking to do safely. This is `join()`-sized work.
+**Depends on:** Daemon runtime model spec, Phase C app migration, `join()` primitive
+**Effort:** L | **Priority:** P3
+
 ### Semantic Session Search
 **What:** Search sessions by context and content, not just timestamp or project name.
 **Why:** Finding the "office-hours design doc session" required grepping raw JSONL. Should be instant — type "design doc" or "control room" and surface matching sessions.
@@ -147,6 +169,18 @@ Action items before v1.0:
 **Why:** Users with 6+ months of Claude sessions may have thousands of JSONL files — slow cold start.
 **How:** Skip files with mtime > 30 days. Or limit to files modified in last 7 days.
 **Effort:** S | **Priority:** P2 | **Target:** v0.3
+
+### Adaptive Poll Interval (Phase C follow-on)
+**What:** Slow the daemon poll from 5s to 30s when all sessions are idle.
+**Why:** 5s polling when nothing is active wastes CPU and battery. If every session is idle, there's nothing useful to update.
+**How:** After each poll, check if any session has status "running" or "waiting". If none, back off to 30s. Reset to 5s immediately when a running/waiting session appears.
+**Effort:** S | **Priority:** P2 | **Target:** v0.5.x
+
+### Daemon Version Handshake (Phase C follow-on)
+**What:** Add `daemon_version: String` to the Health IPC response. App logs a warning when the version field doesn't match the compiled-in expected version.
+**Why:** Daemon and app ship together in v0.5.0 but Homebrew updates could cause partial upgrades later. Without a handshake, a protocol mismatch silently discards IPC responses — the rescue path "log + discard" makes it invisible to the user.
+**How:** Add `daemon_version` to `Response::Health`. App reads it on every health poll. If mismatch detected, surface in the daemon offline banner: "Daemon version mismatch — restart daemon with: humos-daemon serve". Full handshake with negotiation is a larger follow-on.
+**Effort:** S | **Priority:** P2 | **Target:** v0.5.x
 
 ---
 
