@@ -1,16 +1,16 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { SessionCard } from "./SessionCard";
+import { PipeConfig } from "./PipeConfig";
+import type { SessionState } from "./types";
+import { colors, spacing, fontSize, radius } from "./tokens";
 
 interface DaemonHealth {
   online: boolean;
   index_sessions: number;
   uptime_secs: number;
 }
-import { SessionCard } from "./SessionCard";
-import { PipeConfig } from "./PipeConfig";
-import type { SessionState } from "./types";
-import { colors, spacing, fontSize, radius } from "./tokens";
 
 interface SignalFiredEvent {
   message: string;

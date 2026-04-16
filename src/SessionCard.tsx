@@ -221,13 +221,10 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
     }
     ribbonDebounceRef.current = setTimeout(async () => {
       setRibbon({ kind: "loading" });
-      const timeout = setTimeout(() => setRibbon({ kind: "idle" }), 200);
       try {
         const result = await invoke<RibbonResult>("get_related_context", { cwd: session.cwd });
-        clearTimeout(timeout);
         setRibbon({ kind: "results", data: result });
       } catch {
-        clearTimeout(timeout);
         setRibbon({ kind: "error" });
       }
     }, 200);

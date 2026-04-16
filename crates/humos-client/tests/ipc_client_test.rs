@@ -18,8 +18,8 @@ fn mock_socket<F>(handler: F) -> std::path::PathBuf
 where
     F: FnOnce(String) -> String + Send + 'static,
 {
-    let dir = tempfile::tempdir().expect("tempdir");
-    let path = dir.into_path().join("test.sock");
+    let dir = tempfile::tempdir().expect("tempdir").keep();
+    let path = dir.join("test.sock");
     let listener = UnixListener::bind(&path).expect("bind");
     let path_clone = path.clone();
 

@@ -23,9 +23,6 @@ use providers::Provider;
 /// The shared session state, keyed by session id.
 type SessionMap = Arc<Mutex<HashMap<String, SessionState>>>;
 
-/// Shared daemon online/offline state.
-type DaemonState = Arc<Mutex<bool>>;
-
 /// Per-session result from a signal broadcast.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct SignalResult {
@@ -525,15 +522,10 @@ fn scan_sessions_into(sessions: &SessionMap) {
 
 /// Tauri command: return current daemon health status.
 #[tauri::command]
-async fn check_daemon_health(
-    daemon_state: State<'_, DaemonState>,
-) -> Result<daemon_client::DaemonHealth, String> {
-    let health = tokio::task::spawn_blocking(daemon_client::poll_health)
+async fn check_daemon_health() -> Result<daemon_client::DaemonHealth, String> {
+    tokio::task::spawn_blocking(daemon_client::poll_health)
         .await
-        .map_err(|e| format!("health poll task panicked: {}", e))?;
-    let mut online = daemon_state.lock().unwrap_or_else(|e| e.into_inner());
-    *online = health.online;
-    Ok(health)
+        .map_err(|e| format!("health poll task panicked: {}", e))
 }
 
 /// Tauri command: fetch Project Brain ribbon for a focused session card.
@@ -655,7 +647,6 @@ pub fn run() {
 
     let sessions: SessionMap = Arc::new(Mutex::new(HashMap::new()));
     let pipe_manager: Arc<Mutex<pipe::PipeManager>> = Arc::new(Mutex::new(pipe::PipeManager::new()));
-    let daemon_online: DaemonState = Arc::new(Mutex::new(false));
 
     // Load persisted pipe rules before starting the poll.
     {
@@ -670,7 +661,6 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .manage(sessions.clone())
         .manage(pipe_manager.clone())
-        .manage(daemon_online.clone())
         .setup(move |app| {
             let handle = app.handle().clone();
             start_session_poll(
