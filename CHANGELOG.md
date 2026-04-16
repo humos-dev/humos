@@ -1,5 +1,24 @@
 # Changelog
 
+## [Unreleased], Plan 2 Phase C
+
+### Added
+- **`humos-client` crate.** Extracted `IpcClient` from `humos-mcp` into a shared workspace crate so any future consumer (app, CLI tools) can reuse the Unix socket client without duplicating code. 6 integration tests using in-process mock sockets cover ping, health, ENOENT, empty response, timeout, and JSON serialization.
+- **Daemon IPC client in the Tauri app (`daemon_client.rs`).** Uses raw JSON strings over the Unix socket to avoid a circular dependency that would arise from importing `humos-daemon` types (which transitively import `humos_lib`, which is the app itself). Protocol matches `humos-daemon` exactly. Two public functions: `poll_health()` and `fetch_related_context(cwd)`.
+- **Project Brain ribbon.** On card hover (200ms debounce), the app calls `get_related_context` and surfaces up to 5 past sessions from the same repo. Five render states: idle, loading, 0 results, 1-5 results, is_stale. Daemon-offline cards show nothing (no ribbon at all).
+- **Daemon offline banner.** Yellow app-level banner with `humos-daemon serve` command and one-click copy button. Shown when daemon health check returns offline. Replaces silent failure.
+- **Two new Tauri commands.** `check_daemon_health` (returns online/index_sessions/uptime) and `get_related_context(cwd)` (returns RibbonResult). Both use `spawn_blocking` to avoid blocking the async runtime on Unix socket I/O.
+- **TODOS.md entries.** Adaptive Poll Interval (P2, S) and Daemon Version Handshake (P2, S) captured as Phase C follow-ons.
+
+### Changed
+- **Session poll replaces file watcher.** `notify` and `notify-debouncer-mini` removed from `src-tauri`. A simple `std::thread::spawn` loop sleeping 5s calls `scan_sessions_into` on each tick. Frontend's existing 5s `setInterval` on `get_sessions` provides the UI refresh.
+- **`ProviderRegistry` removed from the app.** `focus_session`, `inject_message`, `signal_sessions`, and `dispatch_pipe_action` now call AppleScript helpers directly. `ClaudeProvider` is used directly for session scanning.
+- **`codex.rs` provider deleted** (64 LOC). Unused since Codex CLI is not part of the Phase C scope.
+
+### Architecture Notes
+- **Why raw JSON in `daemon_client.rs`:** Importing `humos-daemon` types in `src-tauri` creates a cycle (`humos` → `humos-daemon` → `humos_lib` → `humos`). Raw JSON string IPC breaks the cycle at the cost of stringly-typed request construction. Protocol is simple (5 message types) and tested in `humos-client` integration tests.
+- **Why app still owns session state:** The daemon protocol has no `ListSessions`. `SearchResult` carries `{id, cwd, project, snippet, score}` — no `status`, `tty`, or `tool_count`. The app's JSONL parser remains the source of truth for session status. Daemon is used for Health + RelatedContext only.
+
 ## [Unreleased], Plan 2 Phase B
 
 ### Added
