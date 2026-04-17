@@ -1,7 +1,9 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { SessionCard } from "./SessionCard";
+import { BrainRibbon } from "./BrainRibbon";
+import { useRelatedContexts } from "./hooks/useRelatedContexts";
 import { PipeConfig } from "./PipeConfig";
 import type { SessionState } from "./types";
 import { colors, spacing, fontSize, radius } from "./tokens";
@@ -234,6 +236,7 @@ export default function App() {
   const [sessions, setSessions] = useState<SessionState[]>([]);
   const [loading, setLoading] = useState(true);
   const [daemonOnline, setDaemonOnline] = useState<boolean | null>(null);
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [pipeOpen, setPipeOpen] = useState(false);
   const [pipeRules, setPipeRules] = useState<PipeRule[]>([]);
   const [log, setLog] = useState<LogEntry[]>(loadStoredLog);
@@ -295,6 +298,25 @@ export default function App() {
       clearInterval(healthInterval);
     };
   }, [loadSessions, loadPipeRules, checkDaemonHealth]);
+
+  // Project Brain: bulk-fetch related contexts for all visible cwds
+  const visibleCwds = useMemo(
+    () => sessions.map((s) => s.cwd).filter(Boolean),
+    [sessions],
+  );
+  const relatedContexts = useRelatedContexts(visibleCwds, daemonOnline);
+
+  // Dense grid: >3 cards have ribbon data
+  const ribbonCount = useMemo(() => {
+    let count = 0;
+    for (const s of sessions) {
+      const ctx = relatedContexts.get(s.cwd);
+      if (ctx && ctx.daemon_online && ctx.matches.length > 0 && !dismissed.has(s.id)) {
+        count++;
+      }
+    }
+    return count;
+  }, [sessions, relatedContexts, dismissed]);
 
   // Persist activity log to localStorage on every change.
   // Error entries are shown in-session but NOT persisted — they're transient.
@@ -632,44 +654,8 @@ export default function App() {
         </div>
       </header>
 
-      {daemonOnline === false && (
-        <div style={{
-          background: "#1a1200",
-          borderBottom: "1px solid #7a5a00",
-          color: "#f5c842",
-          fontSize: "12px",
-          padding: "6px 16px",
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-        }}>
-          <span style={{ opacity: 0.7 }}>⬡</span>
-          <span>
-            Daemon not running — Project Brain ribbon unavailable.
-            Start with:{" "}
-            <code style={{ fontFamily: "monospace", background: "rgba(255,255,255,0.08)", padding: "1px 5px", borderRadius: "3px" }}>
-              humos-daemon serve
-            </code>
-          </span>
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText("humos-daemon serve").catch(() => {});
-            }}
-            style={{
-              marginLeft: "auto",
-              background: "none",
-              border: "1px solid #7a5a00",
-              color: "#f5c842",
-              borderRadius: "4px",
-              padding: "2px 8px",
-              fontSize: "11px",
-              cursor: "pointer",
-            }}
-          >
-            Copy
-          </button>
-        </div>
-      )}
+      {/* Daemon offline banner removed: ribbon handles per-card state.
+         Offline ribbon suppressed until daemon ships as auto-start (user decision). */}
 
       {signalOpen && (
         <div
@@ -778,18 +764,33 @@ export default function App() {
             </div>
           </div>
         ) : (
-          <div style={styles.grid}>
-            {sessions.map((session) => (
-              <SessionCard
-                key={session.id}
-                session={session}
-                isSource={sourceIds.has(session.id)}
-                isTarget={targetIds.has(session.id)}
-                signalSuccess={signalFlashIds.has(session.id)}
-                signalFail={signalFailIds.has(session.id)}
-                daemonOnline={daemonOnline === true}
-              />
-            ))}
+          <div
+            style={styles.grid}
+            className={ribbonCount > 3 ? "session-grid--dense" : ""}
+          >
+            {sessions.map((session) => {
+              const ctx = relatedContexts.get(session.cwd) ?? null;
+              const showRibbon = ctx && ctx.daemon_online && ctx.matches.length > 0 && !dismissed.has(session.id);
+              return (
+                <SessionCard
+                  key={session.id}
+                  session={session}
+                  isSource={sourceIds.has(session.id)}
+                  isTarget={targetIds.has(session.id)}
+                  signalSuccess={signalFlashIds.has(session.id)}
+                  signalFail={signalFailIds.has(session.id)}
+                  ribbon={showRibbon ? (
+                    <BrainRibbon
+                      context={ctx}
+                      dismissed={dismissed.has(session.id)}
+                      onDismiss={() => setDismissed((prev) => new Set(prev).add(session.id))}
+                    />
+                  ) : (daemonOnline === true && ctx === null && session.cwd ? (
+                    <BrainRibbon context={null} dismissed={false} onDismiss={() => {}} />
+                  ) : undefined)}
+                />
+              );
+            })}
           </div>
         )}
       </main>

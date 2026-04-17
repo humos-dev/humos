@@ -1,28 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { SessionState, SessionStatus } from "./types";
 import { formatDateTime } from "./utils/formatDateTime";
-
-interface RibbonEntry {
-  session_id: string;
-  project: string;
-  cwd: string;
-  snippet: string;
-  modified_at: string;
-}
-
-interface RibbonResult {
-  daemon_online: boolean;
-  is_stale: boolean;
-  entries: RibbonEntry[];
-  total_count: number;
-}
-
-type RibbonState =
-  | { kind: "idle" }
-  | { kind: "loading" }
-  | { kind: "results"; data: RibbonResult }
-  | { kind: "error" };
 
 interface Props {
   session: SessionState;
@@ -30,7 +9,7 @@ interface Props {
   isTarget?: boolean;
   signalSuccess?: boolean;
   signalFail?: boolean;
-  daemonOnline?: boolean;
+  ribbon?: React.ReactNode;
 }
 
 const STATUS_DOT: Record<SessionStatus, { color: string; label: string }> = {
@@ -183,7 +162,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
 };
 
-export function SessionCard({ session, isSource, isTarget, signalSuccess, signalFail, daemonOnline }: Props) {
+export function SessionCard({ session, isSource, isTarget, signalSuccess, signalFail, ribbon }: Props) {
   const [sendOpen, setSendOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [message, setMessage] = useState("");
@@ -193,9 +172,6 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
   const [summarizing, setSummarizing] = useState(false);
   const [dots, setDots] = useState(".");
   const [actionError, setActionError] = useState<string | null>(null);
-  const [ribbon, setRibbon] = useState<RibbonState>({ kind: "idle" });
-  const [cardFocused, setCardFocused] = useState(false);
-  const ribbonDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!summarizing) return;
@@ -212,29 +188,9 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
     }
   }, [actionError]);
 
-  // Project Brain ribbon: fetch on card focus, 200ms debounce.
-  useEffect(() => {
-    if (ribbonDebounceRef.current) clearTimeout(ribbonDebounceRef.current);
-    if (!cardFocused || !daemonOnline || !session.cwd) {
-      setRibbon({ kind: "idle" });
-      return;
-    }
-    ribbonDebounceRef.current = setTimeout(async () => {
-      setRibbon({ kind: "loading" });
-      try {
-        const result = await invoke<RibbonResult>("get_related_context", { cwd: session.cwd });
-        setRibbon({ kind: "results", data: result });
-      } catch {
-        setRibbon({ kind: "error" });
-      }
-    }, 200);
-    return () => {
-      if (ribbonDebounceRef.current) clearTimeout(ribbonDebounceRef.current);
-    };
-  }, [cardFocused, daemonOnline, session.cwd]);
-
   const statusInfo = STATUS_DOT[session.status];
   const isRunning = session.status === "running";
+  const hasRibbon = !!ribbon;
 
   async function handleFocus() {
     try {
@@ -291,12 +247,10 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
   ].filter(Boolean).join(" ");
 
   return (
-    <div
-      className={cardClass}
-      data-session-id={session.id}
-      onMouseEnter={() => setCardFocused(true)}
-      onMouseLeave={() => { setCardFocused(false); setRibbon({ kind: "idle" }); }}
-    >
+    <div className={cardClass} data-session-id={session.id}>
+      {/* Project Brain ribbon — ambient strip at card top (spec v2) */}
+      {ribbon}
+
       {/* Header */}
       <div style={styles.cardHeader}>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -304,6 +258,10 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
             <div style={styles.projectName}>{session.project || session.id}</div>
             {(() => {
               const badge = PROVIDER_BADGE[session.provider] ?? PROVIDER_FALLBACK;
+              // Demote to neutral when ribbon present (no double-green anchor)
+              const badgeColor = hasRibbon ? "#777" : badge.color;
+              const badgeBg = hasRibbon ? "#151515" : badge.bg;
+              const badgeBorder = hasRibbon ? "#262626" : badge.border;
               return (
                 <span
                   title={`Provider: ${session.provider || "unknown"}`}
@@ -312,9 +270,9 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
                     fontWeight: 600,
                     letterSpacing: "0.06em",
                     textTransform: "uppercase",
-                    color: badge.color,
-                    background: badge.bg,
-                    border: `1px solid ${badge.border}`,
+                    color: badgeColor,
+                    background: badgeBg,
+                    border: `1px solid ${badgeBorder}`,
                     borderRadius: "3px",
                     padding: "1px 5px",
                     lineHeight: 1.4,
@@ -328,7 +286,7 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
           </div>
           <div style={styles.cwd}>{session.cwd}</div>
         </div>
-        {/* Pipe connection dot — no label, just presence */}
+        {/* Pipe connection dot */}
         {(isSource || isTarget) && (
           <div
             title={isSource ? "pipe source" : "pipe target"}
@@ -389,10 +347,10 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
             </div>
           </>
         )}
-        <span className="session-card__expand-icon">{expanded ? "▾" : "▸"}</span>
+        <span className="session-card__expand-icon">{expanded ? "\u25BE" : "\u25B8"}</span>
       </div>
 
-      {/* Actions — hidden until hover (CSS handles it via session-card__actions) */}
+      {/* Actions — hidden until hover (CSS handles it) */}
       <div className="session-card__actions">
         <button
           style={{ ...styles.btn, ...(focused ? styles.btnPrimary : {}) }}
@@ -448,55 +406,6 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
       {actionError && (
         <div style={{ fontSize: "11px", color: "#f87171", marginTop: "-4px" }}>
           {actionError}
-        </div>
-      )}
-
-      {/* Project Brain ribbon — shows on hover when daemon is online */}
-      {cardFocused && daemonOnline && (
-        <div style={{
-          marginTop: "10px",
-          borderTop: "1px solid #1e1e1e",
-          paddingTop: "8px",
-        }}>
-          {ribbon.kind === "loading" && (
-            <div style={{ fontSize: "10px", color: "#444" }}>Loading past sessions...</div>
-          )}
-          {ribbon.kind === "results" && ribbon.data.entries.length === 0 && (
-            <div style={{ fontSize: "10px", color: "#444" }}>
-              No past sessions in this repo.
-            </div>
-          )}
-          {ribbon.kind === "results" && ribbon.data.entries.length > 0 && (
-            <div>
-              <div style={{ fontSize: "9px", color: "#555", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "5px" }}>
-                Project Brain
-                {ribbon.data.is_stale && (
-                  <span style={{ marginLeft: "6px", color: "#5a5a2a" }}>· Updating index...</span>
-                )}
-              </div>
-              {ribbon.data.entries.slice(0, 5).map((entry) => (
-                <div key={entry.session_id} style={{
-                  marginBottom: "5px",
-                  padding: "4px 6px",
-                  background: "#0e0e0e",
-                  borderRadius: "4px",
-                  borderLeft: "2px solid #2a2a2a",
-                }}>
-                  <div style={{ fontSize: "10px", color: "#888", marginBottom: "2px" }}>
-                    {entry.project} · {new Date(entry.modified_at).toLocaleDateString()}
-                  </div>
-                  <div style={{ fontSize: "11px", color: "#aaa", lineHeight: 1.4 }}>
-                    {entry.snippet}
-                  </div>
-                </div>
-              ))}
-              {ribbon.data.total_count > 5 && (
-                <div style={{ fontSize: "10px", color: "#555" }}>
-                  and {ribbon.data.total_count - 5} more
-                </div>
-              )}
-            </div>
-          )}
         </div>
       )}
     </div>
