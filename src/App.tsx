@@ -306,6 +306,9 @@ export default function App() {
   );
   const relatedContexts = useRelatedContexts(visibleCwds, daemonOnline);
 
+  // Suppress ribbon when all sessions share 1 cwd (no distinguishing info)
+  const uniqueCwdCount = useMemo(() => new Set(visibleCwds).size, [visibleCwds]);
+
   // Dense grid: >3 cards have ribbon data
   const ribbonCount = useMemo(() => {
     let count = 0;
@@ -770,7 +773,7 @@ export default function App() {
           >
             {sessions.map((session) => {
               const ctx = relatedContexts.get(session.cwd) ?? null;
-              const showRibbon = ctx && ctx.daemon_online && ctx.matches.length > 0 && !dismissed.has(session.id);
+              const showRibbon = uniqueCwdCount > 1 && ctx && ctx.daemon_online && ctx.matches.length > 0 && !dismissed.has(session.id);
               return (
                 <SessionCard
                   key={session.id}
@@ -785,7 +788,7 @@ export default function App() {
                       dismissed={dismissed.has(session.id)}
                       onDismiss={() => setDismissed((prev) => new Set(prev).add(session.id))}
                     />
-                  ) : (daemonOnline === true && ctx === null && session.cwd ? (
+                  ) : (uniqueCwdCount > 1 && daemonOnline === true && ctx === null && session.cwd ? (
                     <BrainRibbon context={null} dismissed={false} onDismiss={() => {}} />
                   ) : undefined)}
                 />
