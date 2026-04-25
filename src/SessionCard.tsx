@@ -122,7 +122,7 @@ const styles: Record<string, React.CSSProperties> = {
     inset: 0,
     background: "#0d0d0dee",
     backdropFilter: "blur(2px)",
-    borderRadius: "8px",
+    borderRadius: "5px",
     padding: "16px",
     display: "flex",
     flexDirection: "column",

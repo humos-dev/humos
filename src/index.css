@@ -439,7 +439,7 @@ body {
   right: 0;
   background: var(--surface);
   border-top: 1px solid var(--border);
-  border-radius: 12px 12px 0 0;
+  border-radius: 6px 6px 0 0;
   padding: 24px;
   z-index: 101;
   max-height: 60vh;
@@ -616,7 +616,7 @@ body {
   padding: 0 16px;
   background: #0d0d0d;
   border-bottom: 1px solid var(--border);
-  border-left: 2px solid var(--signal);
+  border-left: 2px solid var(--coord);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   transition: border-color 0.15s;
 }
@@ -634,7 +634,7 @@ body {
   font-size: 12px;
   font-family: inherit;
   color: var(--text);
-  caret-color: var(--signal);
+  caret-color: var(--coord);
 }
 
 .signal-command-bar__input::placeholder {
@@ -671,7 +671,7 @@ body {
   left: 0;
   height: 2px;
   width: 100%;
-  background: var(--signal);
+  background: var(--coord);
   animation: signal-countdown 2s linear forwards;
   opacity: 0.8;
 }
@@ -684,7 +684,7 @@ body {
 .signal-command-bar__cancel {
   background: none;
   border: none;
-  color: var(--signal);
+  color: var(--coord);
   font-size: 11px;
   font-family: inherit;
   cursor: pointer;
@@ -695,7 +695,7 @@ body {
 }
 
 .signal-command-bar__cancel:hover {
-  background: rgba(62, 207, 142, 0.1);
+  background: rgba(59, 130, 246, 0.1);
 }
 
 .signal-command-bar__error-text {

@@ -110,7 +110,7 @@ function animatePipeLine(
     c.beginPath();
     c.moveTo(x1, y1);
     c.lineTo(x1 + (x2 - x1) * ease, y1 + (y2 - y1) * ease);
-    c.strokeStyle = "#3ecf8e";
+    c.strokeStyle = "#3b82f6";
     c.lineWidth = 1.5;
     c.setLineDash([4, 4]);
     c.stroke();
@@ -119,14 +119,14 @@ function animatePipeLine(
     const headY = y1 + (y2 - y1) * ease;
     c.beginPath();
     c.arc(headX, headY, 3, 0, Math.PI * 2);
-    c.fillStyle = "#3ecf8e";
+    c.fillStyle = "#3b82f6";
     c.fill();
 
     if (t < 1) {
       rafId = requestAnimationFrame(draw);
     } else {
       toEl.style.transition = "box-shadow 0s";
-      toEl.style.boxShadow = "0 0 0 1px #3ecf8e";
+      toEl.style.boxShadow = "0 0 0 1px #3b82f6";
       timeoutA = setTimeout(() => {
         if (cancelled) return;
         toEl.style.transition = "box-shadow 0.6s ease";
@@ -623,9 +623,9 @@ export default function App() {
               <span
                 style={{
                   marginLeft: "5px",
-                  background: "var(--signal)",
+                  background: "var(--coord)",
                   color: "#000",
-                  borderRadius: "8px",
+                  borderRadius: "6px",
                   padding: "0 5px",
                   fontSize: "10px",
                   fontWeight: 700,
