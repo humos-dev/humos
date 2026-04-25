@@ -51,7 +51,7 @@ brew tap humos-dev/humos && brew install --cask humos
 
 ### Option 2: Download ZIP
 
-1. Download `humOS_0.4.4_aarch64.zip` from [GitHub Releases](https://github.com/humos-dev/humos/releases/latest)
+1. Download `humOS_0.5.4_arm64.zip` from [GitHub Releases](https://github.com/humos-dev/humos/releases/latest)
 2. Unzip the archive
 3. Run the following command to clear the macOS quarantine flag:
    ```bash
@@ -79,11 +79,13 @@ That's the primitive. Everything else is variations on it.
 
 ## Status and roadmap
 
-**Shipped (v0.4.4):**
-- Session dashboard with live file watching
-- `pipe()` with `OnIdle` and `OnFileWrite` triggers, persistence, and pipe-fired animations
+**Shipped (v0.5.4):**
+- Session dashboard with live file watching — grid and list view with toggle
+- `pipe()` with `OnIdle` and `OnFileWrite` triggers, persistent canvas edges, pipe history footer
 - `signal()` broadcast with undo window, partial-failure reporting, and per-card flash states
-- Focus / Send / Summarize per-card actions
+- Focus / Send / Summarize per-card actions (grid and list view)
+- Dead session indicator with one-click resume command copy
+- Project Brain ribbon (cross-session context awareness via daemon)
 
 **Next up:**
 - `join()` — wait for multiple sessions to complete, then aggregate their outputs
