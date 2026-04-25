@@ -3,6 +3,7 @@ import { getVersion } from "@tauri-apps/api/app";
 
 interface VersionCheckResult {
   newVersion: string | null;
+  releaseUrl: string | null;
 }
 
 function semverGt(a: string, b: string): boolean {
@@ -17,6 +18,7 @@ function semverGt(a: string, b: string): boolean {
 
 export function useVersionCheck(): VersionCheckResult {
   const [newVersion, setNewVersion] = useState<string | null>(null);
+  const [releaseUrl, setReleaseUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,11 +38,12 @@ export function useVersionCheck(): VersionCheckResult {
 
         const data = await res.json();
         if (!cancelled && data?.version && semverGt(data.version, current)) {
-          // Key dismiss on the REMOTE version, not the installed version.
-          // This ensures each new release re-triggers the banner even if the
-          // user dismissed a previous update notification without installing.
           const dismissed = localStorage.getItem(`humos-dismissed-v${data.version}`);
-          if (!dismissed) setNewVersion(data.version);
+          if (!dismissed) {
+            setNewVersion(data.version);
+            // Use the url from version.json — always points to a real release.
+            setReleaseUrl(data.url ?? `https://github.com/humos-dev/humos/releases/latest`);
+          }
         }
       } catch {
         // Network error, timeout, or parse failure — silently skip.
@@ -51,5 +54,5 @@ export function useVersionCheck(): VersionCheckResult {
     return () => { cancelled = true; };
   }, []);
 
-  return { newVersion };
+  return { newVersion, releaseUrl };
 }

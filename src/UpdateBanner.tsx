@@ -1,13 +1,11 @@
 interface Props {
   version: string;
+  releaseUrl: string;
   onDismiss: () => void;
 }
 
-export function UpdateBanner({ version, onDismiss }: Props) {
-  const releaseUrl = `https://github.com/humos-dev/humos/releases/tag/v${version}`;
-
+export function UpdateBanner({ version, releaseUrl, onDismiss }: Props) {
   function handleDismiss() {
-    // Key on the remote version so future releases re-trigger the banner.
     localStorage.setItem(`humos-dismissed-v${version}`, "true");
     onDismiss();
   }

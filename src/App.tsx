@@ -302,7 +302,7 @@ export default function App() {
   const [sessions, setSessions] = useState<SessionState[]>([]);
   const [loading, setLoading] = useState(true);
   const [daemonOnline, setDaemonOnline] = useState<boolean | null>(null);
-  const { newVersion } = useVersionCheck();
+  const { newVersion, releaseUrl } = useVersionCheck();
   const [updateBannerDismissed, setUpdateBannerDismissed] = useState(false);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<"grid" | "list">(() =>
@@ -758,9 +758,10 @@ export default function App() {
       </header>
 
       {/* Update banner — shown when a newer version is available */}
-      {newVersion && !updateBannerDismissed && (
+      {newVersion && releaseUrl && !updateBannerDismissed && (
         <UpdateBanner
           version={newVersion}
+          releaseUrl={releaseUrl}
           onDismiss={() => setUpdateBannerDismissed(true)}
         />
       )}
