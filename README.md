@@ -52,8 +52,13 @@ brew tap humos-dev/humos && brew install --cask humos
 ### Option 2: Download ZIP
 
 1. Download `humOS_0.4.4_aarch64.zip` from [GitHub Releases](https://github.com/humos-dev/humos/releases/latest)
-2. Unzip and drag **humOS.app** to Applications
-3. Run: `xattr -cr /Applications/humOS.app`
+2. Unzip the archive
+3. Run the following command to clear the macOS quarantine flag:
+   ```bash
+   xattr -cr ~/Downloads/humOS.app
+   ```
+4. Drag **humOS.app** to Applications
+5. Open normally — if macOS shows "damaged and can't be opened", repeat step 3 with `/Applications/humOS.app`
 
 **Requirements:**
 - macOS 13 or later (Apple Silicon)

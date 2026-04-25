@@ -703,8 +703,10 @@
         <div style="margin-top: 24px; margin-bottom: 8px; font-family: var(--mono); font-size: 12px; color: var(--signal); text-transform: uppercase; letter-spacing: 0.08em;">Option 2: Download ZIP</div>
         <div style="color: var(--text-1); font-size: 14.5px; line-height: 1.7;">
           1. Download <a href="https://github.com/humos-dev/humos/releases/latest" target="_blank" rel="noopener noreferrer" style="color: var(--signal); border-bottom: 1px dashed var(--signal-line);">humOS_0.4.4_aarch64.zip</a> from GitHub Releases<br/>
-          2. Unzip and drag <strong style="color: var(--text);">humOS.app</strong> to Applications<br/>
-          3. Run: <code>xattr -cr /Applications/humOS.app</code>
+          2. Unzip the archive<br/>
+          3. Run in Terminal: <code>xattr -cr ~/Downloads/humOS.app</code><br/>
+          4. Drag <strong style="color: var(--text);">humOS.app</strong> to Applications and open normally<br/>
+          <span style="font-size: 13px; color: var(--text-3);">If macOS shows "damaged and can't be opened", run <code>xattr -cr /Applications/humOS.app</code> instead.</span>
         </div>
         <div class="install-meta" style="margin-top: 20px;">requires macOS 13+ · Apple Silicon · Terminal.app or iTerm2 · MIT licensed</div>
       </div>
