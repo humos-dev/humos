@@ -345,6 +345,51 @@ Same in both views. Fixed bottom strip, `--bg-2`, `border-top: 1px solid --borde
 
 ---
 
+## Update Banner (Approved — Direction A: Signal Strip)
+
+**Approved 2026-04-25.** Appears between the header and session grid when a newer version is available. Dismissed per-version via localStorage.
+
+```
+┌─ Header ───────────────────────────────────────────────────────────┐
+│ humOS | 20 sessions          [≡ List] [⊞ Grid] [Pipes ▲] [Signal] │
+├─ Update Strip (28px, only when update available) ──────────────────┤
+│ ↑ humOS 0.5.5 available                  See what's new ↗    ×    │
+├─ Session grid ─────────────────────────────────────────────────────┤
+│ cards...                                                            │
+```
+
+**Spec:**
+- Height: 28px
+- Background: `--bg-2` (#0d0d0d)
+- Left border: `2px solid --coord` (#3b82f6)
+- Bottom border: `1px solid rgba(59, 130, 246, 0.20)`
+- Content left: `↑ humOS {version} available` — JetBrains Mono 10px, `--coord` color
+- Content right: `See what's new ↗` link (opacity 0.7, links to GitHub release tag) + `×` dismiss button (#555)
+- Padding: `0 16px`
+- Motion: none (follows minimal-functional rule)
+- Dismissed per-version: `localStorage.setItem('humos-dismissed-v{version}', 'true')`
+- Reappears for each new version (per-version key, not a global dismiss)
+
+**States:**
+| State | Renders |
+|---|---|
+| Same version as installed | Nothing |
+| Newer version, not dismissed | Strip |
+| Newer version, dismissed for this version | Nothing |
+| Network error / offline | Nothing |
+
+---
+
+## Update Banner — Future Iterations
+
+### Direction B: Header Pill (deferred)
+A pill button in the header row (between the status badge and view toggle) with a pulsing coord blue dot. Clicking opens a compact dropdown anchored below the pill showing version info + dismiss. Zero screen real estate cost — no strip, no layout shift. Better if the strip ever feels too prominent. Requires: new pill component, dropdown positioning logic.
+
+### Direction C: Bottom Toast (deferred)
+Floating 260px card anchored bottom-right above the activity log. Shows version + link + auto-dismiss countdown (10s). Familiar macOS notification convention. Good candidate when release notes become rich enough to warrant more prominent surfacing. Requires: toast positioning, auto-dismiss timer, z-index management above the canvas overlay.
+
+---
+
 ## Decisions Log
 
 | Date | Decision | Rationale |
@@ -359,3 +404,5 @@ Same in both views. Fixed bottom strip, `--bg-2`, `border-top: 1px solid --borde
 | 2026-04-25 | Grid + List view toggle (Direction B approved) | Panel Density direction approved from /design-shotgun; users switch via header toggle. List view = dense rows, left-border accent. Grid view = card grid with semantic stripes + pipe footer. |
 | 2026-04-25 | Wire Mesh deferred to future exploration | Direction A showed promise at 3-4 cards but edge-crossing at 5+ is unresolved. Needs draggable positions or forced layout before approval. |
 | 2026-04-25 | Direction C (Signal Clear) not approved | Semantic stripes incorporated into Direction B grid view instead. Full Direction C layout not needed. |
+| 2026-04-25 | Update banner: Direction A (Signal Strip) approved | 28px full-width strip between header and grid. Coord blue left border + text. Matches BrainRibbon pattern. Non-intrusive, zero layout shift. |
+| 2026-04-25 | Update banner: Directions B and C deferred as future iterations | B (Header Pill with dropdown) = more compact, good for v2 if strip feels too prominent. C (Bottom Toast with auto-dismiss) = familiar macOS convention, good if we add richer release notes. |
