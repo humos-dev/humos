@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.5] — 2026-04-25
+
+### Added
+- **In-app update notifications.** humOS now checks for new versions on startup. When a newer version is available, a coord blue strip appears between the header and the session grid: "↑ humOS X.Y.Z available · See what's new ↗ · ×". Dismissed per-version — each new release re-triggers the banner. Polling uses `humos.dev/version.json` (served by Vercel, no rate limits). Silent on network errors and offline.
+- **`docs/version.json`** — new static file served by Vercel at `humos.dev/version.json`. Updated automatically by `build-release.sh` on every release.
+
+### Changed
+- **`build-release.sh`** now auto-writes `docs/version.json` after every build so the update endpoint is always in sync with the shipped version.
+
 ## [0.5.4] — 2026-04-25
 
 ### Fixed
