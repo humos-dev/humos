@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.3] — 2026-04-25
+
+### Fixed
+- **Ghost pipe edges cleared when rule is deleted.** Removing a pipe from the Pipes drawer now immediately clears its canvas line. Previously the edge remained on screen until the next resize or pipe fire. Deleting all rules now clears the canvas entirely.
+- **List view has full feature parity with grid view.** Focus and Summarize buttons are now available on every list row in an Actions column. Summary output appears as an inline detail row below the session row when Summarize is clicked.
+
 ## [0.5.2] — 2026-04-25
 
 ### Fixed
