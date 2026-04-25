@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.5.2] — 2026-04-25
+
+### Fixed
+- **Dead session resume command shows full session ID.** The callout previously displayed a truncated 8-character ID. It now shows the complete `claude --resume <full-id>` command. Copy button pastes the full executable command directly — no extra steps needed.
+
 ## [0.5.1] — 2026-04-25
 
 ### Added
