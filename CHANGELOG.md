@@ -1,6 +1,24 @@
 # Changelog
 
-## [Unreleased], Plan 2 Phase C
+## [0.5.1] — 2026-04-25
+
+### Added
+- **Persistent pipe edges.** Pipe connections are now always visible as blue lines between session cards — not just during the 500ms fire animation. Active connections (at least one session running) show as solid lines with arrowheads. Dormant connections (both sessions idle) show as dashed grey lines. Off-screen cards skip drawing cleanly.
+- **Pipe history footer.** Each session card shows the last pipe direction and relative time ("→ humos · 2 min ago" or "← medwrite · just now"). Updates live as pipes fire.
+- **Dead Session Indicator.** Idle sessions now show an "Ended" button instead of "Send." Clicking it reveals an inline callout with the resume command (`claude --resume <id>`) and a one-click copy button. Works in both grid and list view.
+- **Grid / List view toggle.** New segmented control in the header lets you switch between the card grid and a dense row-based list view. List view shows session name, status, last output, pipe connection, and timestamp in a compact table layout. Choice persists to localStorage.
+- **Design system (DESIGN.md).** Full design system committed: JetBrains Mono everywhere (loaded via `@fontsource/jetbrains-mono`), `--coord` (#3b82f6) for all coordination elements, `--amber` (#f59e0b) for waiting sessions, `--grid-line` (#0e0e0e) for the coordinate-space grid background.
+
+### Changed
+- **Semantic color split.** Green (`--signal`) now means session health only. Blue (`--coord`) means coordination — pipe edges, pipe dots, signal bar accent, pipe fire animation, pipe badge in header. The two were previously conflated.
+- **Card radius and padding.** Session cards are now 5px radius (was 8px) and 12px padding (was 16px). Monitoring-tool density, not consumer-app cards.
+- **Coordinate grid background.** The main session area now renders a subtle 24px grid in the background, reinforcing the "sessions as nodes on a surface" mental model.
+- **Activity log.** Displays 8 entries (was 5) with a gentler opacity fade floor of 0.15.
+- **BrainRibbon bleed margins** updated to match new 12px card padding.
+
+## [0.5.0] — 2026-04-22
+
+### Added (Plan 2 Phase C — Daemon IPC + Project Brain Ribbon)
 
 ### Added
 - **`humos-client` crate.** Extracted `IpcClient` from `humos-mcp` into a shared workspace crate so any future consumer (app, CLI tools) can reuse the Unix socket client without duplicating code. 6 integration tests using in-process mock sockets cover ping, health, ENOENT, empty response, timeout, and JSON serialization.
@@ -19,7 +37,7 @@
 - **Why raw JSON in `daemon_client.rs`:** Importing `humos-daemon` types in `src-tauri` creates a cycle (`humos` → `humos-daemon` → `humos_lib` → `humos`). Raw JSON string IPC breaks the cycle at the cost of stringly-typed request construction. Protocol is simple (5 message types) and tested in `humos-client` integration tests.
 - **Why app still owns session state:** The daemon protocol has no `ListSessions`. `SearchResult` carries `{id, cwd, project, snippet, score}` — no `status`, `tty`, or `tool_count`. The app's JSONL parser remains the source of truth for session status. Daemon is used for Health + RelatedContext only.
 
-## [Unreleased], Plan 2 Phase B
+## [0.5.0 cont.] — Plan 2 Phase B
 
 ### Added
 - **`humos-mcp` crate.** New standalone binary that speaks MCP (Model Context Protocol) JSON-RPC 2.0 over stdio and bridges any MCP-capable AI agent (Claude Code, Codex CLI, Cursor) to the humOS daemon. Ships as Phase B (PR 2 of 4) of Plan 2.
@@ -28,7 +46,7 @@
 - **Error translation.** Daemon IPC errors propagate to MCP clients as `isError: true` tool results with the problem / cause / fix / docs_url body so the calling agent can surface actionable messages.
 - **README** with copy-paste JSON/TOML config for all three MCP clients.
 
-## [Unreleased], Plan 2 Phase A
+## [0.5.0 cont.] — Plan 2 Phase A
 
 ### Added
 - **`humos-daemon` crate.** New standalone binary that owns the tantivy session index at `~/.humOS/index/` and serves it over a Unix socket at `~/.humOS/daemon.sock`. Ships as Phase A (PR 1 of 4) of Plan 2: the coordination runtime foundation. Phase B adds the MCP stdio server, Phase C migrates the app to consume the daemon and lights up the Project Brain ribbon, Phase D adds distribution.
