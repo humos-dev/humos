@@ -3,7 +3,9 @@
 set -euo pipefail
 
 APP_NAME="humOS"
-BUNDLE_DIR="src-tauri/target/release/bundle/macos"
+# Tauri uses the Cargo workspace root target/, not src-tauri/target/
+# Using src-tauri/target/ installs a stale old bundle — always use workspace root
+BUNDLE_DIR="target/release/bundle/macos"
 APP_PATH="$BUNDLE_DIR/$APP_NAME.app"
 VERSION=$(grep '"version"' src-tauri/tauri.conf.json | head -1 | sed 's/.*: "\(.*\)".*/\1/')
 ARCH=$(uname -m)
