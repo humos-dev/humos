@@ -307,7 +307,7 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
         {isIdle && sendOpen && (
           <div className="session-list__dead-row">
             <span>Session ended. Resume:</span>
-            <code style={{ color: "var(--error)", fontSize: "9px", margin: "0 6px" }}>claude --resume {session.id.slice(0, 8)}</code>
+            <code style={{ color: "var(--error)", fontSize: "9px", margin: "0 6px" }}>claude --resume {session.id}</code>
             <button
               style={{ marginLeft: "auto", background: "rgba(248,113,113,.07)", border: "1px solid rgba(248,113,113,.2)", color: "var(--error)", borderRadius: "2px", padding: "2px 8px", fontFamily: "inherit", fontSize: "9px", cursor: "pointer" }}
               onClick={() => { navigator.clipboard.writeText(`claude --resume ${session.id}`).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
@@ -468,7 +468,7 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
         }}>
           <span>Session ended. Resume:</span>
           <code style={{ color: "var(--error)", fontSize: "9px" }}>
-            claude --resume {session.id.slice(0, 8)}
+            claude --resume {session.id}
           </code>
           <button
             style={{
