@@ -1,3 +1,28 @@
+## STRATEGIC LOCK-IN (2026-04-19) — Cross-Vendor Pivot
+
+**Decision:** humOS's next-ship priority is cross-vendor coordination, not more Claude-Code-only polish.
+
+**Why now:** Anthropic shipped `--worktree`, desktop multi-session sidebar, and agent teams (swarms) in the last two weeks. Every coordination feature humOS has today, Anthropic is also shipping natively. The race is unwinnable on Claude-only turf. The one layer Anthropic cannot build: coordination *across* CLIs (Claude Code + Codex + Cursor + Cline). That is where humOS becomes defensible.
+
+**v0.5.0 scope (one weekend, concrete):**
+- Add `CodexAdapter` next to `ClaudeParser`. Parse Codex CLI session state. Normalize idle/working/waiting to a shared vocabulary.
+- Per-CLI injection strategy. `pbpaste` + Terminal already works for any Terminal-resident CLI, so Codex should ride the same path.
+- New demo video: Claude session + Codex session side by side, signal() broadcasts one prompt to both.
+- LP + README rewrite. Strip Claude-Code-specific copy. New line: "Unix primitives for any agent CLI on your Mac."
+- Homebrew cask + GitHub ZIP ship with new tagline.
+
+**v0.6.0:** Cursor + Cline adapters (IDE-embedded, harder injection path).
+
+**Launch sequencing (critical):**
+- Do NOT tag @bcherny or @claudeai until v0.5.0 ships with cross-vendor proof.
+- Tagging Anthropic today invites clone signal. Tagging after cross-vendor lands invites conversation (and reframes humOS as complementary, not competitive).
+- Post v0.5.0 with reframed hook, then tag Boris with: "agent teams is great for intra-session. humOS is for inter-session and cross-vendor. curious how you think about the split."
+
+**North star reframe:** humOS is not a Claude Code tool. humOS is the Switzerland of agent CLIs. Every line of copy, every demo, every reply reflects that by the time v0.5.0 ships.
+
+**Derivative killed:** any feature that only makes Claude-Code-on-humOS marginally better is deprioritized below any feature that adds a new CLI. Polish is dead weight; breadth is the moat.
+
+---
 
 ## Feature Ideas (Backlog)
 
