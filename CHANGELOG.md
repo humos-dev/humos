@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.5.4] — 2026-04-25
+
+### Fixed
+- **Send button now available in list view.** List view Actions column has full parity with grid view: Focus, Send, and Summarize. Clicking Send in list view shows an inline input row below the session. Idle sessions show "Ended" in the Send slot, same behaviour as grid view.
+
 ## [0.5.3] — 2026-04-25
 
 ### Fixed
