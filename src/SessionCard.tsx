@@ -294,8 +294,8 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
               width: "5px",
               height: "5px",
               borderRadius: "50%",
-              background: "var(--signal)",
-              opacity: 0.5,
+              background: "var(--coord)",
+              opacity: 0.7,
               flexShrink: 0,
               marginTop: "3px",
             }}
