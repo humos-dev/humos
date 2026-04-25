@@ -296,12 +296,6 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
           </div>
           <div className="session-list__cell session-list__cell--ts">
             <div style={{ fontSize: "9px", color: "#444" }}>{(() => { const { time } = formatDateTime(session.modified_at); return time; })()}</div>
-            {isIdle && (
-              <button
-                style={{ marginTop: "3px", background: "rgba(248,113,113,.07)", border: "1px solid rgba(248,113,113,.2)", color: "var(--error)", borderRadius: "2px", padding: "1px 6px", fontFamily: "inherit", fontSize: "8px", cursor: "pointer" }}
-                onClick={() => setSendOpen((v) => !v)}
-              >Ended</button>
-            )}
           </div>
           <div className="session-list__cell session-list__cell--actions">
             <button
@@ -310,6 +304,11 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
               aria-label={`Focus ${session.project}`}
             >{focused ? "Focused!" : "Focus"}</button>
             <button
+              style={{ ...styles.btn, padding: "3px 8px", fontSize: "9px", marginTop: "3px", ...(sendOpen && !isIdle ? styles.btnPrimary : {}), ...(isIdle ? { opacity: 0.5 } : {}) }}
+              onClick={() => setSendOpen((v) => !v)}
+              aria-label={isIdle ? `Session ended — see resume command` : `Send message to ${session.project}`}
+            >{isIdle ? "Ended" : sendOpen ? "Cancel" : "Send"}</button>
+            <button
               style={{ ...styles.btn, padding: "3px 8px", fontSize: "9px", marginTop: "3px", opacity: summarizing ? 0.5 : 1 }}
               onClick={handleSummarize}
               disabled={summarizing}
@@ -317,6 +316,23 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
             >{summarizing ? dots : "Summarize"}</button>
           </div>
         </div>
+        {!isIdle && sendOpen && (
+          <div style={{ padding: "6px 12px", background: "#0a0a0a", borderBottom: "1px solid var(--border)" }}>
+            <input
+              style={{ ...styles.sendInput, marginTop: 0 }}
+              placeholder={`Send to ${session.project}... (Enter to send, Esc to cancel)`}
+              value={message}
+              maxLength={512}
+              autoFocus
+              readOnly={sending}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
+                if (e.key === "Escape") setSendOpen(false);
+              }}
+            />
+          </div>
+        )}
         {isIdle && sendOpen && (
           <div className="session-list__dead-row">
             <span>Session ended. Resume:</span>
