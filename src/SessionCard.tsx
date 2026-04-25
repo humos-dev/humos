@@ -10,6 +10,16 @@ interface Props {
   signalSuccess?: boolean;
   signalFail?: boolean;
   ribbon?: React.ReactNode;
+  pipeHistory?: { fromProject: string; ts: number };
+  viewMode?: "grid" | "list";
+}
+
+function relativeTime(ts: number): string {
+  const diff = Math.floor((Date.now() - ts) / 1000);
+  if (diff < 60) return "just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
 }
 
 const STATUS_DOT: Record<SessionStatus, { color: string; label: string }> = {
@@ -162,7 +172,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
 };
 
-export function SessionCard({ session, isSource, isTarget, signalSuccess, signalFail, ribbon }: Props) {
+export function SessionCard({ session, isSource, isTarget, signalSuccess, signalFail, ribbon, pipeHistory, viewMode = "grid" }: Props) {
   const [sendOpen, setSendOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [message, setMessage] = useState("");
@@ -172,6 +182,9 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
   const [summarizing, setSummarizing] = useState(false);
   const [dots, setDots] = useState(".");
   const [actionError, setActionError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const isIdle = session.status === "idle";
 
   useEffect(() => {
     if (!summarizing) return;
@@ -241,10 +254,63 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
   const cardClass = [
     "session-card",
     isRunning ? "session-card--running" : "",
+    isIdle ? "session-card--idle" : "",
     sendOpen ? "session-card--send-open" : "",
     signalSuccess ? "session-card--signal-success" : "",
     signalFail ? "session-card--signal-fail" : "",
+    (isSource || isTarget) ? "session-card--coord" : "",
   ].filter(Boolean).join(" ");
+
+  // List view render
+  if (viewMode === "list") {
+    const pipeCell = pipeHistory
+      ? (isSource
+        ? `→ ${pipeHistory.fromProject} · ${relativeTime(pipeHistory.ts)}`
+        : `← ${pipeHistory.fromProject} · ${relativeTime(pipeHistory.ts)}`)
+      : (isSource || isTarget ? "connected" : "—");
+    return (
+      <>
+        <div
+          className={[
+            "session-list__row",
+            session.status === "running" || session.status === "waiting" ? `session-list__row--${session.status}` : "session-list__row--idle",
+            (isSource || isTarget) ? "session-list__row--coord" : "",
+          ].filter(Boolean).join(" ")}
+          data-session-id={session.id}
+        >
+          <div className="session-list__cell session-list__cell--name">
+            <div style={{ fontWeight: 600, fontSize: "11px", color: "var(--text)" }}>{session.project || session.id}</div>
+            <div style={{ fontSize: "9px", color: "var(--text-3)", marginTop: "1px" }}>{session.cwd}</div>
+          </div>
+          <div className="session-list__cell session-list__cell--status">
+            <div style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "0.08em", color: statusInfo.color }}>{statusInfo.label}</div>
+            <div style={{ fontSize: "8px", color: "#444", marginTop: "1px" }}>{session.tool_count} tools</div>
+          </div>
+          <div className="session-list__cell session-list__cell--output">
+            <div style={{ fontSize: "10px", color: "var(--text-3)", lineHeight: 1.4 }}>
+              {(session.last_output || "no output").replace(/\*\*/g, "").replace(/`/g, "").slice(0, 80)}
+            </div>
+          </div>
+          <div className="session-list__cell session-list__cell--pipe">
+            <div style={{ fontSize: "9px", color: pipeHistory ? "var(--coord)" : "#444", opacity: pipeHistory ? 0.8 : 1 }}>{pipeCell}</div>
+          </div>
+          <div className="session-list__cell session-list__cell--ts">
+            <div style={{ fontSize: "9px", color: "#444" }}>{(() => { const { time } = formatDateTime(session.modified_at); return time; })()}</div>
+          </div>
+        </div>
+        {isIdle && sendOpen && (
+          <div className="session-list__dead-row">
+            <span>Session ended. Resume:</span>
+            <code style={{ color: "var(--error)", fontSize: "9px", margin: "0 6px" }}>claude --resume {session.id.slice(0, 8)}</code>
+            <button
+              style={{ marginLeft: "auto", background: "rgba(248,113,113,.07)", border: "1px solid rgba(248,113,113,.2)", color: "var(--error)", borderRadius: "2px", padding: "2px 8px", fontFamily: "inherit", fontSize: "9px", cursor: "pointer" }}
+              onClick={() => { navigator.clipboard.writeText(`claude --resume ${session.id}`).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+            >{copied ? "Copied!" : "Copy"}</button>
+          </div>
+        )}
+      </>
+    );
+  }
 
   return (
     <div className={cardClass} data-session-id={session.id}>
@@ -360,11 +426,15 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
           {focused ? "Focused!" : "Focus"}
         </button>
         <button
-          style={{ ...styles.btn, ...(sendOpen ? styles.btnPrimary : {}) }}
+          style={{
+            ...styles.btn,
+            ...(sendOpen ? styles.btnPrimary : {}),
+            ...(isIdle ? { opacity: 0.5 } : {}),
+          }}
           onClick={() => setSendOpen((v) => !v)}
-          aria-label={`Send message to ${session.project}`}
+          aria-label={isIdle ? `Session ended — see resume command` : `Send message to ${session.project}`}
         >
-          {sendOpen ? "Cancel" : "Send"}
+          {isIdle ? "Ended" : sendOpen ? "Cancel" : "Send"}
         </button>
         <button
           style={{ ...styles.btn, opacity: summarizing ? 0.5 : 1 }}
@@ -376,8 +446,44 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
         </button>
       </div>
 
-      {/* Send input */}
-      {sendOpen && (
+      {/* Send input / Dead session callout */}
+      {sendOpen && (isIdle ? (
+        <div style={{
+          padding: "7px 10px",
+          background: "rgba(248, 113, 113, 0.06)",
+          border: "1px solid rgba(248, 113, 113, 0.2)",
+          borderRadius: "3px",
+          fontSize: "10px",
+          color: "var(--text-2)",
+          lineHeight: 1.6,
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+        }}>
+          <span>Session ended. Resume:</span>
+          <code style={{ color: "var(--error)", fontSize: "9px" }}>
+            claude --resume {session.id.slice(0, 8)}
+          </code>
+          <button
+            style={{
+              marginLeft: "auto",
+              background: "rgba(248,113,113,.07)",
+              border: "1px solid rgba(248,113,113,.2)",
+              color: "var(--error)",
+              borderRadius: "2px",
+              padding: "2px 8px",
+              fontFamily: "inherit",
+              fontSize: "9px",
+              cursor: "pointer",
+            }}
+            onClick={() => {
+              navigator.clipboard.writeText(`claude --resume ${session.id}`).catch(() => {});
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
+            }}
+          >{copied ? "Copied!" : "Copy"}</button>
+        </div>
+      ) : (
         <input
           style={styles.sendInput}
           placeholder={`Send to ${session.project}... (Enter to send, Esc to cancel)`}
@@ -391,7 +497,7 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
             if (e.key === "Escape") setSendOpen(false);
           }}
         />
-      )}
+      ))}
 
       {/* Summary overlay */}
       {summary !== null && !summarizing && (
@@ -402,9 +508,25 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
         </div>
       )}
 
+      {/* Pipe history footer */}
+      {pipeHistory && (
+        <div style={{
+          fontSize: "9px",
+          color: "#444",
+          borderTop: "1px solid var(--border)",
+          paddingTop: "5px",
+          marginTop: "-2px",
+        }}>
+          {isSource
+            ? <>→ <span style={{ color: "var(--coord)", opacity: 0.7 }}>{pipeHistory.fromProject}</span> · {relativeTime(pipeHistory.ts)}</>
+            : <>← <span style={{ color: "var(--coord)", opacity: 0.7 }}>{pipeHistory.fromProject}</span> · {relativeTime(pipeHistory.ts)}</>
+          }
+        </div>
+      )}
+
       {/* Action error */}
       {actionError && (
-        <div style={{ fontSize: "11px", color: "#f87171", marginTop: "-4px" }}>
+        <div style={{ fontSize: "10px", color: "#f87171", marginTop: "-4px" }}>
           {actionError}
         </div>
       )}

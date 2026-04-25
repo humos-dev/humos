@@ -79,7 +79,8 @@ function loadStoredLog(): LogEntry[] {
 function animatePipeLine(
   canvas: HTMLCanvasElement,
   fromEl: HTMLElement,
-  toEl: HTMLElement
+  toEl: HTMLElement,
+  drawBackground?: () => void,
 ): () => void {
   const ctx = canvas.getContext("2d");
   if (ctx == null) return () => {};
@@ -106,6 +107,7 @@ function animatePipeLine(
     const ease = 1 - Math.pow(1 - t, 3);
 
     c.clearRect(0, 0, canvas.width, canvas.height);
+    drawBackground?.();
 
     c.beginPath();
     c.moveTo(x1, y1);
@@ -135,6 +137,7 @@ function animatePipeLine(
           if (cancelled) return;
           toEl.style.transition = "";
           c.clearRect(0, 0, canvas.width, canvas.height);
+          drawBackground?.();
         }, 600);
       }, 150);
     }
@@ -147,6 +150,63 @@ function animatePipeLine(
     if (timeoutA !== null) clearTimeout(timeoutA);
     if (timeoutB !== null) clearTimeout(timeoutB);
   };
+}
+
+function drawPipeEdges(
+  canvas: HTMLCanvasElement | null,
+  sessions: SessionState[],
+  pipeRules: PipeRule[],
+): void {
+  if (!canvas || pipeRules.length === 0) return;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  for (const rule of pipeRules) {
+    const fromEl = document.querySelector<HTMLElement>(`[data-session-id="${rule.from_session_id}"]`);
+    const toEl = document.querySelector<HTMLElement>(`[data-session-id="${rule.to_session_id}"]`);
+    if (!fromEl || !toEl) continue;
+
+    const fr = fromEl.getBoundingClientRect();
+    const tr = toEl.getBoundingClientRect();
+    if (!fr.width || !tr.width) continue;
+
+    const fromSession = sessions.find((s) => s.id === rule.from_session_id);
+    const toSession = sessions.find((s) => s.id === rule.to_session_id);
+    const bothIdle = fromSession?.status === "idle" && toSession?.status === "idle";
+
+    const x1 = fr.left + fr.width / 2;
+    const y1 = fr.top + fr.height / 2;
+    const x2 = tr.left + tr.width / 2;
+    const y2 = tr.top + tr.height / 2;
+
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    if (bothIdle) {
+      ctx.strokeStyle = "rgba(100, 100, 100, 0.25)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 6]);
+    } else {
+      ctx.strokeStyle = "rgba(59, 130, 246, 0.35)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([]);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    if (!bothIdle) {
+      const angle = Math.atan2(y2 - y1, x2 - x1);
+      const headLen = 7;
+      ctx.beginPath();
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 - headLen * Math.cos(angle - Math.PI / 6), y2 - headLen * Math.sin(angle - Math.PI / 6));
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 - headLen * Math.cos(angle + Math.PI / 6), y2 - headLen * Math.sin(angle + Math.PI / 6));
+      ctx.strokeStyle = "rgba(62, 207, 142, 0.35)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
 }
 
 const styles: Record<string, React.CSSProperties> = {
@@ -237,6 +297,9 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [daemonOnline, setDaemonOnline] = useState<boolean | null>(null);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<"grid" | "list">(() =>
+    (localStorage.getItem("humos-view") as "grid" | "list") ?? "grid"
+  );
   const [pipeOpen, setPipeOpen] = useState(false);
   const [pipeRules, setPipeRules] = useState<PipeRule[]>([]);
   const [log, setLog] = useState<LogEntry[]>(loadStoredLog);
@@ -247,6 +310,8 @@ export default function App() {
   const [signalFailIds, setSignalFailIds] = useState<Set<string>>(new Set());
   const [signalError, setSignalError] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const drawEdgesRef = useRef<() => void>(() => {});
+  const [pipeHistory, setPipeHistory] = useState<Map<string, { fromProject: string; ts: number }>>(new Map());
   // Monotonic log entry counter — useRef avoids module-level mutable state.
   const logSeqRef = useRef(0);
   // Mirror of sessions for use inside event listener closures without staleness.
@@ -339,8 +404,23 @@ export default function App() {
     const unlisten = listen<PipeFiredEvent>("pipe-fired", (event) => {
       const { from_session_id, to_session_id, success, error } = event.payload;
 
+      // Use the ref so this closure is never stale.
+      const current = sessionsRef.current;
+      const fromName =
+        current.find((s) => s.id === from_session_id)?.project ??
+        from_session_id.slice(0, 8);
+      const toName =
+        current.find((s) => s.id === to_session_id)?.project ??
+        to_session_id.slice(0, 8);
+
       // Only animate the pipe line on successful injection.
       if (success) {
+        setPipeHistory((prev) => {
+          const next = new Map(prev);
+          next.set(to_session_id, { fromProject: fromName, ts: Date.now() });
+          return next;
+        });
+
         const canvas = canvasRef.current;
         if (canvas) {
           const fromEl = document.querySelector<HTMLElement>(
@@ -351,19 +431,10 @@ export default function App() {
           );
           if (fromEl && toEl) {
             cancelAnim?.();
-            cancelAnim = animatePipeLine(canvas, fromEl, toEl);
+            cancelAnim = animatePipeLine(canvas, fromEl, toEl, () => drawEdgesRef.current());
           }
         }
       }
-
-      // Use the ref so this closure is never stale.
-      const current = sessionsRef.current;
-      const fromName =
-        current.find((s) => s.id === from_session_id)?.project ??
-        from_session_id.slice(0, 8);
-      const toName =
-        current.find((s) => s.id === to_session_id)?.project ??
-        to_session_id.slice(0, 8);
 
       setLog((prev) => {
         const text = success
@@ -384,18 +455,27 @@ export default function App() {
     };
   }, []); // stable — reads sessionsRef, not sessions state
 
-  // Resize canvas to window.
+  // Resize canvas to window and redraw edges (setting width/height clears canvas).
   useEffect(() => {
     function resize() {
       const c = canvasRef.current;
       if (!c) return;
       c.width = window.innerWidth;
       c.height = window.innerHeight;
+      drawEdgesRef.current();
     }
     resize();
     window.addEventListener("resize", resize);
     return () => window.removeEventListener("resize", resize);
   }, []);
+
+  // Keep drawEdgesRef current and redraw after layout changes (50ms lets
+  // the grid re-render before we measure card positions via getBoundingClientRect).
+  useEffect(() => {
+    drawEdgesRef.current = () => drawPipeEdges(canvasRef.current, sessions, pipeRules);
+    const t = setTimeout(() => drawEdgesRef.current(), 50);
+    return () => clearTimeout(t);
+  }, [sessions, pipeRules]);
 
   // Reload rules whenever pipe drawer opens or closes.
   useEffect(() => {
@@ -607,6 +687,18 @@ export default function App() {
           <div style={styles.badge}>
             {runningCount > 0 ? `${runningCount} running` : "Idle"}
           </div>
+          <div className="view-toggle">
+            <button
+              className={`view-toggle__btn${viewMode === "list" ? " view-toggle__btn--active" : ""}`}
+              onClick={() => { setViewMode("list"); localStorage.setItem("humos-view", "list"); }}
+              aria-label="List view"
+            >≡ List</button>
+            <button
+              className={`view-toggle__btn${viewMode === "grid" ? " view-toggle__btn--active" : ""}`}
+              onClick={() => { setViewMode("grid"); localStorage.setItem("humos-view", "grid"); }}
+              aria-label="Grid view"
+            >⊞ Grid</button>
+          </div>
           <button
             style={{
               ...styles.pipeBtn,
@@ -766,6 +858,28 @@ export default function App() {
               </div>
             </div>
           </div>
+        ) : viewMode === "list" ? (
+          <div className="session-list-view">
+            <div className="session-list__header">
+              <div className="session-list__hcell session-list__hcell--name">Session</div>
+              <div className="session-list__hcell session-list__hcell--status">Status</div>
+              <div className="session-list__hcell session-list__hcell--output">Last Output</div>
+              <div className="session-list__hcell session-list__hcell--pipe">Pipe</div>
+              <div className="session-list__hcell session-list__hcell--ts">Time</div>
+            </div>
+            {sessions.map((session) => (
+              <SessionCard
+                key={session.id}
+                session={session}
+                isSource={sourceIds.has(session.id)}
+                isTarget={targetIds.has(session.id)}
+                signalSuccess={signalFlashIds.has(session.id)}
+                signalFail={signalFailIds.has(session.id)}
+                pipeHistory={pipeHistory.get(session.id)}
+                viewMode="list"
+              />
+            ))}
+          </div>
         ) : (
           <div
             style={styles.grid}
@@ -782,6 +896,7 @@ export default function App() {
                   isTarget={targetIds.has(session.id)}
                   signalSuccess={signalFlashIds.has(session.id)}
                   signalFail={signalFailIds.has(session.id)}
+                  pipeHistory={pipeHistory.get(session.id)}
                   ribbon={showRibbon ? (
                     <BrainRibbon
                       context={ctx}
@@ -801,17 +916,17 @@ export default function App() {
       {/* Activity log */}
       {log.length > 0 && (
         <div className="activity-log">
-          {log.slice(0, 5).map((entry, i) => (
+          {log.slice(0, 8).map((entry, i) => (
             <span
               key={entry.id}
               className="activity-log__entry"
-              style={{ opacity: 1 - i * 0.18 }}
+              style={{ opacity: Math.max(0.15, 1 - i * 0.12) }}
             >
               <span style={{ color: "#333", marginRight: "6px" }}>
                 {entry.ts}
               </span>
               <span className="activity-log__signal">▸</span> {entry.text}
-              {i < Math.min(log.length, 5) - 1 && (
+              {i < Math.min(log.length, 8) - 1 && (
                 <span style={{ color: "#222", margin: "0 10px" }}>·</span>
               )}
             </span>
