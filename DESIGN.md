@@ -255,6 +255,96 @@ The ambient project context strip at the top of session cards.
 
 ---
 
+## Layout Modes (Approved — Direction B: Panel Density)
+
+**Approved 2026-04-25.** Users can switch between two views via a toggle in the header. Both views use the same data and semantic color rules from this document.
+
+### View Toggle
+
+- Position: header right, before Pipes and Signal buttons
+- Style: two-button segmented control, `border: 1px solid --border-2`, no gap between buttons, `border-radius: 3px`
+- Active state: `rgba(59, 130, 246, 0.10)` bg, `--coord` text
+- Inactive state: transparent bg, `--text-3` text
+- Labels: `≡ List` and `⊞ Grid`
+- Keyboard: persist selection to localStorage under key `humos-view`
+
+---
+
+### Grid View (default)
+
+The existing card grid. Auto-fill `minmax(280px, 1fr)`, gap `8px`. Each card gets:
+
+**Semantic top stripes (2px each, stacked):**
+- Row 1 (top): coordination stripe — `--coord` (#3b82f6) when card has an active pipe rule, transparent otherwise
+- Row 2: health stripe — `--signal` (#3ecf8e) when running, `--amber` (#f59e0b) when waiting, `#222` when idle
+
+**Pipe footer strip** (when card is a pipe source or target):
+- `margin: 0 -12px -12px`, `padding: 5px 12px`
+- Source: `rgba(59, 130, 246, 0.06)` bg, `rgba(59, 130, 246, 0.15)` border-top, `--coord` text, `→ [target] · fired N min ago`
+- Target: same styling, `← [source] · received N min ago`
+
+**Dead session footer** (when `status === "idle"` and user clicks Send):
+- `rgba(248, 113, 113, 0.05)` bg, `rgba(248, 113, 113, 0.15)` border-top, `--error` text
+- Content: `Resume: claude --resume <id>` + copy button (right-aligned, 8px font)
+
+---
+
+### List View
+
+Dense row layout. No card grid — sessions are rows in a table-like structure. More information per pixel than the grid. Good for 8+ sessions.
+
+**Structure:**
+
+```
+┌─ Header row (bg: --bg-2, border-bottom: --border-2) ───────────────────────────────┐
+│  Session  │  Status  │  Last Output              │  Pipe          │  Time  │
+├───────────┼──────────┼───────────────────────────┼────────────────┼────────┤
+│  row 1    │          │                           │                │        │
+│  row 2    │          │                           │                │        │
+│  ...      │          │                           │                │        │
+└────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Column widths:** Session 120px | Status 80px | Output flex:1 | Pipe 140px | Time 50px
+
+**Row left-border accent (2px, replaces top stripe):**
+- Pipe-connected + running: `rgba(59, 130, 246, 0.45)` — blue
+- Running only (no pipe): `rgba(62, 207, 142, 0.25)` — green
+- Waiting: `rgba(245, 158, 11, 0.30)` — amber
+- Idle: transparent
+
+**Row hover:** `rgba(255, 255, 255, 0.015)` bg
+
+**Dead session:** Appears as a separate sub-row immediately below the idle session row. `background: rgba(248, 113, 113, 0.04)`, `border-bottom: 1px solid --border`. Content: `[project] · session ended. Resume: claude --resume <id>` + copy button right-aligned.
+
+**Header row:** 8px font, `--text-4` (#333), uppercase, letter-spacing 0.10em. `background: --bg-2`.
+
+**Content area padding:** 0 in list view (rows bleed to edges). 12px in grid view.
+
+---
+
+### Shared: Activity Log footer
+
+Same in both views. Fixed bottom strip, `--bg-2`, `border-top: 1px solid --border`, `padding: 6px 14px`. Entries displayed inline, separated by `·` dividers. Most recent entry full opacity, earlier entries fade.
+
+---
+
+## Future Design Explorations
+
+### Wire Mesh (explored 2026-04-25 — not approved yet)
+
+**Concept:** Pipe edges are the primary visual element. Session cards are nodes on the coordinate grid. The network topology dominates — you see connections first, sessions second. Live SVG edges drawn dynamically between card centres via `getBoundingClientRect()`.
+
+**What works:** At 3-4 cards, the topology is immediately legible. Active pipes (solid blue + arrowhead) and dormant rules (dashed grey) create clear visual hierarchy. The grid background reinforces the "coordinate space" mental model.
+
+**Open problem:** At 5+ cards in an auto-fill grid, diagonal edges cross rows and can create visual tangling. Free-position layout (cards as draggable nodes) would solve this but requires significant UI rework. Auto-fill grid + crossing edges is functional but not clean at scale.
+
+**Condition to approve:** Needs a solution to the edge-crossing problem at 6+ cards before it can be added to the dashboard. Options to explore: (1) force a two-column layout so edges only go left-right, (2) user-draggable card positions saved to localStorage, (3) only show edges between cards in the same row.
+
+**Reference mockup:** `/tmp/humos-A-wiremesh-5cards.html` (local, not committed)
+
+---
+
 ## Decisions Log
 
 | Date | Decision | Rationale |
@@ -266,3 +356,6 @@ The ambient project context strip at the top of session cards.
 | 2026-04-25 | Card padding 12px (was 16px) | Compact density appropriate for monitoring tools |
 | 2026-04-25 | Pipe edges as hero visual | Defining identity for humOS; persistent edges (not just fire animation) make coordination always visible |
 | 2026-04-25 | Amber (#f59e0b) as waiting semantic color | Formalizes existing implied waiting color; completes the three-state session health vocabulary |
+| 2026-04-25 | Grid + List view toggle (Direction B approved) | Panel Density direction approved from /design-shotgun; users switch via header toggle. List view = dense rows, left-border accent. Grid view = card grid with semantic stripes + pipe footer. |
+| 2026-04-25 | Wire Mesh deferred to future exploration | Direction A showed promise at 3-4 cards but edge-crossing at 5+ is unresolved. Needs draggable positions or forced layout before approval. |
+| 2026-04-25 | Direction C (Signal Clear) not approved | Semantic stripes incorporated into Direction B grid view instead. Full Direction C layout not needed. |
