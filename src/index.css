@@ -419,6 +419,60 @@ body {
   color: var(--text-3);
 }
 
+/* ── Update Banner (Direction A — Signal Strip) ──────────────── */
+.update-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  height: 28px;
+  background: var(--bg-2);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.20);
+  border-left: 2px solid var(--coord);
+  flex-shrink: 0;
+}
+.update-banner__left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--coord);
+}
+.update-banner__arrow {
+  font-size: 10px;
+  color: var(--coord);
+}
+.update-banner__right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.update-banner__link {
+  font-size: 10px;
+  color: var(--coord);
+  opacity: 0.7;
+  text-decoration: none;
+  font-family: var(--font);
+  transition: opacity 0.1s;
+}
+.update-banner__link:hover { opacity: 1; }
+.update-banner__dismiss {
+  font-size: 11px;
+  color: var(--text-3);
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-family: var(--font);
+  padding: 0 6px;
+  min-width: 24px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.1s;
+}
+.update-banner__dismiss:hover { color: var(--text-2); }
+
 .session-card__actions {
   display: flex;
   gap: 8px;

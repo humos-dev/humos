@@ -20,6 +20,16 @@ if [ ! -d "$APP_PATH" ]; then
   exit 1
 fi
 
+echo "==> Writing docs/version.json..."
+cat > docs/version.json << VEOF
+{
+  "version": "$VERSION",
+  "url": "https://github.com/humos-dev/humos/releases/tag/v$VERSION",
+  "date": "$(date +%Y-%m-%d)"
+}
+VEOF
+echo "    docs/version.json updated to v$VERSION"
+
 echo "==> Clearing quarantine on .app..."
 xattr -cr "$APP_PATH"
 

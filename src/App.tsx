@@ -3,6 +3,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { SessionCard } from "./SessionCard";
 import { BrainRibbon } from "./BrainRibbon";
+import { UpdateBanner } from "./UpdateBanner";
+import { useVersionCheck } from "./hooks/useVersionCheck";
 import { useRelatedContexts } from "./hooks/useRelatedContexts";
 import { PipeConfig } from "./PipeConfig";
 import type { SessionState } from "./types";
@@ -300,6 +302,8 @@ export default function App() {
   const [sessions, setSessions] = useState<SessionState[]>([]);
   const [loading, setLoading] = useState(true);
   const [daemonOnline, setDaemonOnline] = useState<boolean | null>(null);
+  const { newVersion } = useVersionCheck();
+  const [updateBannerDismissed, setUpdateBannerDismissed] = useState(false);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<"grid" | "list">(() =>
     (localStorage.getItem("humos-view") as "grid" | "list") ?? "grid"
@@ -753,8 +757,13 @@ export default function App() {
         </div>
       </header>
 
-      {/* Daemon offline banner removed: ribbon handles per-card state.
-         Offline ribbon suppressed until daemon ships as auto-start (user decision). */}
+      {/* Update banner — shown when a newer version is available */}
+      {newVersion && !updateBannerDismissed && (
+        <UpdateBanner
+          version={newVersion}
+          onDismiss={() => setUpdateBannerDismissed(true)}
+        />
+      )}
 
       {signalOpen && (
         <div
