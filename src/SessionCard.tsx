@@ -296,6 +296,12 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
           </div>
           <div className="session-list__cell session-list__cell--ts">
             <div style={{ fontSize: "9px", color: "#444" }}>{(() => { const { time } = formatDateTime(session.modified_at); return time; })()}</div>
+            {isIdle && (
+              <button
+                style={{ marginTop: "3px", background: "rgba(248,113,113,.07)", border: "1px solid rgba(248,113,113,.2)", color: "var(--error)", borderRadius: "2px", padding: "1px 6px", fontFamily: "inherit", fontSize: "8px", cursor: "pointer" }}
+                onClick={() => setSendOpen((v) => !v)}
+              >Ended</button>
+            )}
           </div>
         </div>
         {isIdle && sendOpen && (

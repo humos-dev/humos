@@ -202,7 +202,7 @@ function drawPipeEdges(
       ctx.lineTo(x2 - headLen * Math.cos(angle - Math.PI / 6), y2 - headLen * Math.sin(angle - Math.PI / 6));
       ctx.moveTo(x2, y2);
       ctx.lineTo(x2 - headLen * Math.cos(angle + Math.PI / 6), y2 - headLen * Math.sin(angle + Math.PI / 6));
-      ctx.strokeStyle = "rgba(62, 207, 142, 0.35)";
+      ctx.strokeStyle = "rgba(59, 130, 246, 0.35)";
       ctx.lineWidth = 1;
       ctx.stroke();
     }
