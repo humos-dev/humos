@@ -1,4 +1,5 @@
 /* ── Design tokens — keep in sync with src/tokens.ts ─────────── */
+/* Semantic rule: --signal (green) = session health. --coord (blue) = coordination. Never swap. */
 :root {
   --bg:          #080808;
   --bg-1:        #0b0b0b;
@@ -12,7 +13,11 @@
   --text-3:      #777777;
   --signal:      #3ecf8e;
   --signal-dim:  rgba(62, 207, 142, 0.14);
+  --coord:       #3b82f6;
+  --coord-dim:   rgba(59, 130, 246, 0.14);
+  --amber:       #f59e0b;
   --error:       #f87171;
+  --grid-line:   #0e0e0e;
 }
 
 /* ── Reset ───────────────────────────────────────────────────── */
@@ -25,7 +30,7 @@
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: -apple-system, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
 }
@@ -70,23 +75,23 @@ body {
   position: relative;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 16px;
+  border-radius: 5px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   transition: border-color 0.15s;
-  min-height: 186px;
+  min-height: 160px;
   overflow: hidden;
 }
 
 /* --- AMBIENT RIBBON (from approved wireframe v2) --- */
 .brain-ribbon {
-  margin: -16px -16px 0 -16px;
-  padding: 6px 10px 6px 12px;
-  background: rgba(62, 207, 142, 0.14);
-  border-bottom: 1px solid rgba(62, 207, 142, 0.35);
-  border-radius: 8px 8px 0 0;
+  margin: -12px -12px 0 -12px;
+  padding: 5px 10px 5px 10px;
+  background: rgba(62, 207, 142, 0.08);
+  border-bottom: 1px solid rgba(62, 207, 142, 0.20);
+  border-radius: 5px 5px 0 0;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -401,6 +406,15 @@ body {
 .waveform--active .waveform__bar:nth-child(1) { animation: waveform-bar 0.9s ease-in-out infinite 0.0s; }
 .waveform--active .waveform__bar:nth-child(2) { animation: waveform-bar 0.9s ease-in-out infinite 0.15s; }
 .waveform--active .waveform__bar:nth-child(3) { animation: waveform-bar 0.9s ease-in-out infinite 0.3s; }
+
+/* ── Grid background (coordinate space) ─────────────────────── */
+.app-grid-bg {
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-color: var(--bg);
+}
 
 /* ── Pipe fire canvas ────────────────────────────────────────── */
 .pipe-fire-canvas {

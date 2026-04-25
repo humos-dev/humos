@@ -729,7 +729,7 @@ export default function App() {
         </div>
       )}
 
-      <main style={styles.main}>
+      <main style={styles.main} className="app-grid-bg">
         {!loading && sessions.length === 0 ? (
           <div className="onboarding">
             <div className="onboarding__card">
