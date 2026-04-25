@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.5.6] — 2026-04-25
+
+### Fixed
+- **Update banner "See what's new" link no longer 404s.** The link now uses the `url` field from `version.json` (controlled by the build script) instead of constructing a URL from the version number. This ensures the link always points to a real published release.
+
 ## [0.5.5] — 2026-04-25
 
 ### Added
