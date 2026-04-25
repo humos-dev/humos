@@ -157,9 +157,13 @@ function drawPipeEdges(
   sessions: SessionState[],
   pipeRules: PipeRule[],
 ): void {
-  if (!canvas || pipeRules.length === 0) return;
+  if (!canvas) return;
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
+
+  // Always clear first so deleted rules don't leave ghost edges.
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (pipeRules.length === 0) return;
 
   for (const rule of pipeRules) {
     const fromEl = document.querySelector<HTMLElement>(`[data-session-id="${rule.from_session_id}"]`);
@@ -866,6 +870,7 @@ export default function App() {
               <div className="session-list__hcell session-list__hcell--output">Last Output</div>
               <div className="session-list__hcell session-list__hcell--pipe">Pipe</div>
               <div className="session-list__hcell session-list__hcell--ts">Time</div>
+              <div className="session-list__hcell session-list__hcell--actions">Actions</div>
             </div>
             {sessions.map((session) => (
               <SessionCard

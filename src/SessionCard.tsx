@@ -303,6 +303,19 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
               >Ended</button>
             )}
           </div>
+          <div className="session-list__cell session-list__cell--actions">
+            <button
+              style={{ ...styles.btn, padding: "3px 8px", fontSize: "9px", ...(focused ? styles.btnPrimary : {}) }}
+              onClick={handleFocus}
+              aria-label={`Focus ${session.project}`}
+            >{focused ? "Focused!" : "Focus"}</button>
+            <button
+              style={{ ...styles.btn, padding: "3px 8px", fontSize: "9px", marginTop: "3px", opacity: summarizing ? 0.5 : 1 }}
+              onClick={handleSummarize}
+              disabled={summarizing}
+              aria-label={`Summarize ${session.project}`}
+            >{summarizing ? dots : "Summarize"}</button>
+          </div>
         </div>
         {isIdle && sendOpen && (
           <div className="session-list__dead-row">
@@ -312,6 +325,12 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
               style={{ marginLeft: "auto", background: "rgba(248,113,113,.07)", border: "1px solid rgba(248,113,113,.2)", color: "var(--error)", borderRadius: "2px", padding: "2px 8px", fontFamily: "inherit", fontSize: "9px", cursor: "pointer" }}
               onClick={() => { navigator.clipboard.writeText(`claude --resume ${session.id}`).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
             >{copied ? "Copied!" : "Copy"}</button>
+          </div>
+        )}
+        {summary !== null && !summarizing && (
+          <div style={{ display: "flex", alignItems: "flex-start", gap: "10px", padding: "8px 12px", background: "#0d0d0d", borderBottom: "1px solid var(--border)" }}>
+            <div style={{ flex: 1, fontSize: "11px", color: "#ccc", lineHeight: 1.6 }}>{summary}</div>
+            <button style={{ ...styles.btn, padding: "3px 10px", fontSize: "9px", flexShrink: 0 }} onClick={() => setSummary(null)}>Dismiss</button>
           </div>
         )}
       </>
