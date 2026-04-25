@@ -24,8 +24,6 @@ export function useVersionCheck(): VersionCheckResult {
     async function check() {
       try {
         const current = await getVersion();
-        const dismissed = localStorage.getItem(`humos-dismissed-v${current}`);
-        if (dismissed) return;
 
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 3000);
@@ -38,7 +36,11 @@ export function useVersionCheck(): VersionCheckResult {
 
         const data = await res.json();
         if (!cancelled && data?.version && semverGt(data.version, current)) {
-          setNewVersion(data.version);
+          // Key dismiss on the REMOTE version, not the installed version.
+          // This ensures each new release re-triggers the banner even if the
+          // user dismissed a previous update notification without installing.
+          const dismissed = localStorage.getItem(`humos-dismissed-v${data.version}`);
+          if (!dismissed) setNewVersion(data.version);
         }
       } catch {
         // Network error, timeout, or parse failure — silently skip.

@@ -1,5 +1,3 @@
-import { getVersion } from "@tauri-apps/api/app";
-
 interface Props {
   version: string;
   onDismiss: () => void;
@@ -8,13 +6,9 @@ interface Props {
 export function UpdateBanner({ version, onDismiss }: Props) {
   const releaseUrl = `https://github.com/humos-dev/humos/releases/tag/v${version}`;
 
-  async function handleDismiss() {
-    try {
-      const current = await getVersion();
-      localStorage.setItem(`humos-dismissed-v${current}`, "true");
-    } catch {
-      // tauri api unavailable (e.g. browser preview) — dismiss in-memory only
-    }
+  function handleDismiss() {
+    // Key on the remote version so future releases re-trigger the banner.
+    localStorage.setItem(`humos-dismissed-v${version}`, "true");
     onDismiss();
   }
 
