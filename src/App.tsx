@@ -310,7 +310,8 @@ export default function App() {
   );
   const [pipeOpen, setPipeOpen] = useState(false);
   const [pipeRules, setPipeRules] = useState<PipeRule[]>([]);
-  const [log, setLog] = useState<LogEntry[]>(loadStoredLog);
+  const initialLog = useState<LogEntry[]>(loadStoredLog)[0];
+  const [log, setLog] = useState<LogEntry[]>(initialLog);
   const [signalOpen, setSignalOpen] = useState(false);
   const [signalMessage, setSignalMessage] = useState("");
   const [signalPending, setSignalPending] = useState(false);
@@ -320,8 +321,15 @@ export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawEdgesRef = useRef<() => void>(() => {});
   const [pipeHistory, setPipeHistory] = useState<Map<string, { fromProject: string; ts: number }>>(new Map());
-  // Monotonic log entry counter — useRef avoids module-level mutable state.
-  const logSeqRef = useRef(0);
+  // Monotonic log entry counter. Initialized to one past the highest id in
+  // the persisted log so new entries never collide with restored ones.
+  // Without this, useRef(0) reset on every app launch and new pipe/signal
+  // events were assigned ids that already existed in localStorage, producing
+  // React's "two children with the same key" warning and risking dropped
+  // entries in the activity log render.
+  const logSeqRef = useRef(
+    initialLog.reduce((m, e) => Math.max(m, e.id), -1) + 1
+  );
   // Mirror of sessions for use inside event listener closures without staleness.
   const sessionsRef = useRef<SessionState[]>([]);
   const signalUndoRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -933,7 +941,7 @@ export default function App() {
         <div className="activity-log">
           {log.slice(0, 8).map((entry, i) => (
             <span
-              key={entry.id}
+              key={`${entry.id}-${entry.ts}`}
               className="activity-log__entry"
               style={{ opacity: Math.max(0.15, 1 - i * 0.12) }}
             >
