@@ -8,3 +8,8 @@ src-tauri/target/
 .vercel
 STRATEGY.md
 humos-private/
+
+# Claude Code session exports (do not commit — may contain strategy/IP)
+humOS.txt
+claude-session-*.txt
+*-session-export.txt
