@@ -128,6 +128,18 @@ case "$confirm" in
   *) echo "aborted"; exit 0 ;;
 esac
 
+# ---- 0. Preflight gates ----
+# Every machine-checkable cadence step runs here before any mutation.
+# See scripts/preflight.sh for the full list. Failure aborts cleanly,
+# nothing has been modified yet.
+echo ""
+echo "==> Running preflight..."
+if [ "$DRY_RUN" -eq 1 ]; then
+  echo "DRY-RUN: ./scripts/preflight.sh"
+else
+  ./scripts/preflight.sh
+fi
+
 # ---- 1. Bump canonical version ----
 run env NEW="$NEW" python3 -c '
 import json, os
