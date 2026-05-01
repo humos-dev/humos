@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+# humOS pre-commit hook: block em dashes and AI-slop vocabulary.
+#
+# Runs only on staged content (not the whole repo). Exits 1 with a helpful
+# error when a banned pattern is found. Override with `git commit --no-verify`
+# if you genuinely need to (e.g. importing third-party content).
+#
+# To disable: chmod -x .git/hooks/pre-commit
+
+set -e
+
+RED=$'\033[31m'
+YELLOW=$'\033[33m'
+RESET=$'\033[0m'
+
+fail=0
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+if [ -z "$staged" ]; then
+  exit 0
+fi
+
+# Files that legitimately contain banned patterns: the hook script itself
+# uses the em dash character as a literal grep pattern, and the hook docs
+# enumerate the banned vocabulary by name.
+is_excluded() {
+  case "$1" in
+    scripts/hooks/pre-commit) return 0 ;;
+    scripts/hooks/README.md)  return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# --------------------------------------------------------------------------
+# Check 1: em dashes in any staged file. Banned project-wide.
+# --------------------------------------------------------------------------
+em_hits=""
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  [ ! -f "$f" ] && continue
+  is_excluded "$f" && continue
+  hits=$(git diff --cached -U0 -- "$f" 2>/dev/null \
+    | grep '—' \
+    | grep '^+' \
+    | grep -v '^+++' \
+    || true)
+  if [ -n "$hits" ]; then
+    em_hits="${em_hits}${f}:"$'\n'"${hits}"$'\n'
+    fail=1
+  fi
+done <<< "$staged"
+
+if [ -n "$em_hits" ]; then
+  printf "%s\n" "${RED}pre-commit: em dashes found. Use commas, periods, or '...' instead.${RESET}"
+  printf "%s" "$em_hits"
+  echo ""
+fi
+
+# --------------------------------------------------------------------------
+# Check 2: AI-slop vocabulary in prose files (.md, .html).
+# Code files are not checked because words like "significant" can be legit
+# variable or comment usage. Prose has no excuse.
+# --------------------------------------------------------------------------
+prose_files=$(echo "$staged" | grep -E '\.(md|html)$' || true)
+if [ -n "$prose_files" ]; then
+  banned_words='delve|crucial|robust|comprehensive|nuanced|multifaceted|furthermore|moreover|additionally|pivotal|tapestry|underscore|foster|showcase|intricate|vibrant'
+  banned_phrases="here's the kicker|here's the thing|plot twist|let me break this down|the bottom line|make no mistake|can't stress this enough"
+
+  slop_hits=""
+  while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    [ ! -f "$f" ] && continue
+    is_excluded "$f" && continue
+    word_hits=$(git diff --cached -U0 -- "$f" 2>/dev/null \
+      | grep -Eiw "$banned_words" \
+      | grep '^+' \
+      | grep -v '^+++' \
+      || true)
+    phrase_hits=$(git diff --cached -U0 -- "$f" 2>/dev/null \
+      | grep -Ei "$banned_phrases" \
+      | grep '^+' \
+      | grep -v '^+++' \
+      || true)
+    combined=""
+    [ -n "$word_hits" ] && combined="${combined}${word_hits}"$'\n'
+    [ -n "$phrase_hits" ] && combined="${combined}${phrase_hits}"$'\n'
+    if [ -n "$combined" ]; then
+      slop_hits="${slop_hits}${f}:"$'\n'"${combined}"
+      fail=1
+    fi
+  done <<< "$prose_files"
+
+  if [ -n "$slop_hits" ]; then
+    printf "%s\n" "${YELLOW}pre-commit: AI-slop vocabulary in prose. Rewrite plainly.${RESET}"
+    printf "%s" "$slop_hits"
+    echo ""
+  fi
+fi
+
+if [ "$fail" -ne 0 ]; then
+  echo "Commit blocked. Fix the lines above, re-stage, retry."
+  echo "Override (not recommended): git commit --no-verify"
+  exit 1
+fi
+
+exit 0
