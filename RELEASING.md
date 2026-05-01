@@ -1,5 +1,38 @@
 # Releasing humOS
 
+## How the cadence is enforced
+
+Every cadence step lives at one of four reliability tiers. Steps higher up
+the hierarchy survive without operator memory; steps lower down are
+descriptive and depend on discipline.
+
+| Tier | Mechanism | Example | Where it lives |
+|------|-----------|---------|----------------|
+| 1 | Memory rule | "Run code review on every diff." | `feedback_*.md` files |
+| 2 | Skill prompt | "Always run /qa before declaring done." | gstack skill instructions |
+| 3 | Pre-commit hook | "Block em dashes, AI slop, version drift." | `scripts/hooks/pre-commit` |
+| 4 | Release script gate | "Block release on test failure, type errors, missing CHANGELOG, dirty tree, smoke fail." | `scripts/preflight.sh`, `scripts/release.sh` |
+
+Tier 1 and 2 are descriptive: a human or LLM reads them and chooses to
+follow them. Tier 3 and 4 are structural: the rule fires whether anyone
+remembers or not. Move rules up the tiers when they have caused a real bug.
+
+This release flow exercises every tier:
+
+- **T1/T2:** `Plan → Design → Audit → Build → Review → QA` (gstack skills,
+  human judgment)
+- **T3:** every `git commit` runs the pre-commit hook (em dashes, AI slop in
+  prose, version source drift)
+- **T4:** every `./scripts/release.sh` run starts with `scripts/preflight.sh`
+  (test, typecheck, hook installed, version sync) and ends with the
+  production smoke (poll humos.dev/version.json until it returns the new
+  version, exit non-zero on timeout)
+
+If a release succeeded, every tier passed. If a tier failed, the script
+exits non-zero before any irreversible step.
+
+## The release command
+
 The full release flow runs in one command:
 
 ```
@@ -36,19 +69,30 @@ Add `--dry-run` to see what the command would do without changing anything.
 1. Sanity checks: on `main`, working tree clean, `gh` CLI installed,
    `origin` remote configured, CHANGELOG section exists for the new
    version. Aborts on any failure.
-2. Bumps `src-tauri/tauri.conf.json` to the new version (this is the
+2. **Preflight (`scripts/preflight.sh`):** pre-commit hook installed,
+   version sources aligned, `cargo test --lib` passes (serialized to
+   avoid env-var races), `tsc --noEmit` passes. Aborts on any failure
+   before touching anything.
+3. Bumps `src-tauri/tauri.conf.json` to the new version (this is the
    canonical version source).
-3. Runs `scripts/sync-versions.sh` to propagate the bump to
+4. Runs `scripts/sync-versions.sh` to propagate the bump to
    `src-tauri/Cargo.toml` and `package.json`.
-4. Runs `scripts/build-release.sh` to compile the app, package it as
+5. Runs `scripts/build-release.sh` to compile the app, package it as
    `humOS_X.Y.Z_arm64.zip`, and rewrite `docs/version.json` with the
    new version and matching release URL.
-5. Commits `chore: release vX.Y.Z`.
-6. Creates an annotated tag `vX.Y.Z`.
-7. Pushes `main` and the tag to `origin`. Vercel auto-deploys `docs/`
+6. Commits `chore: release vX.Y.Z`.
+7. Creates an annotated tag `vX.Y.Z`.
+8. Pushes `main` and the tag to `origin`. Vercel auto-deploys `docs/`
    on push, which rewrites `humos.dev/version.json`.
-8. Creates a GitHub release with the ZIP attached and release notes
+9. Creates a GitHub release with the ZIP attached and release notes
    pulled from the CHANGELOG section.
+10. **Aliases `humos.dev` to the latest Ready Vercel deploy.** Without
+    this step, manual aliases from past invocations can pin the
+    production domain to an old deploy.
+11. **Production smoke:** polls `humos.dev/version.json` every 10s for up
+    to 120s. Exits non-zero with a recovery command if the endpoint
+    never returns the new version. The release is not "done" until
+    this passes.
 
 ## What happens for users after a release ships
 
