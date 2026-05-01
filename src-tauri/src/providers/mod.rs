@@ -100,6 +100,7 @@ impl ProviderRegistry {
 }
 
 pub mod claude;
+pub mod opencode;
 
 #[cfg(test)]
 mod tests {

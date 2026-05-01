@@ -4,14 +4,19 @@
 
 **Why now:** Anthropic shipped `--worktree`, desktop multi-session sidebar, and agent teams (swarms) in the last two weeks. Every coordination feature humOS has today, Anthropic is also shipping natively. The race is unwinnable on Claude-only turf. The one layer Anthropic cannot build: coordination *across* CLIs (Claude Code + Codex + Cursor + Cline). That is where humOS becomes defensible.
 
-**v0.5.0 scope (one weekend, concrete):**
-- Add `CodexAdapter` next to `ClaudeParser`. Parse Codex CLI session state. Normalize idle/working/waiting to a shared vocabulary.
-- Per-CLI injection strategy. `pbpaste` + Terminal already works for any Terminal-resident CLI, so Codex should ride the same path.
-- New demo video: Claude session + Codex session side by side, signal() broadcasts one prompt to both.
-- LP + README rewrite. Strip Claude-Code-specific copy. New line: "Unix primitives for any agent CLI on your Mac."
+**v0.5.0 retro:** v0.5.0 shipped Daemon IPC + Project Brain ribbon, NOT the cross-vendor adapter originally scoped. v0.5.1–v0.5.6 (Apr 25) shipped polish on the Claude-only surface (persistent pipe edges, list view, design system, in-app updater). The cross-vendor scope below moves to v0.6.0.
+
+**v0.6.0 scope (target Sun May 17, 2026):**
+- Add `OpenCodeProvider` next to `ClaudeProvider` in `src-tauri/src/providers/`. Open opencode's sqlite database (`~/.local/share/opencode/opencode.db`) read-only and map sessions to humOS `SessionState`. Spike confirmed integration path 2026-05-01 — see `PLAN-opencode-adapter.md`.
+- Per-CLI injection strategy. `pbpaste` + Terminal already works for any Terminal-resident TUI, so opencode rides the same path as Claude.
+- New demo video: Claude session + opencode session side by side, signal() broadcasts one prompt to both.
+- LP + README rewrite. Strip Claude-Code-specific copy. New line: "Coordination primitives for any agent CLI on your Mac." Add opencode to the visible agent list.
 - Homebrew cask + GitHub ZIP ship with new tagline.
 
-**v0.6.0:** Cursor + Cline adapters (IDE-embedded, harder injection path).
+**Why opencode (not Codex CLI) as the first non-Claude adapter:** opencode is open source, sqlite-backed (clean schema, not reverse-engineered), no API-key dependency for testers, and demos with the same cross-vendor weight. Codex CLI moves to v0.7.
+
+**v0.7.0:** Codex CLI adapter (process-based detection, second cross-vendor proof point).
+**v0.8.0+:** Cursor + Cline adapters (IDE-embedded, harder injection path).
 
 **Launch sequencing (critical):**
 - Do NOT tag @bcherny or @claudeai until v0.5.0 ships with cross-vendor proof.

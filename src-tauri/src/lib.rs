@@ -18,7 +18,8 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
 
 use providers::claude::ClaudeProvider;
-use providers::Provider;
+use providers::opencode::OpenCodeProvider;
+use providers::ProviderRegistry;
 
 /// The shared session state, keyed by session id.
 type SessionMap = Arc<Mutex<HashMap<String, SessionState>>>;
@@ -505,11 +506,18 @@ fn walkdir_recursive(dir: &PathBuf) -> Vec<PathBuf> {
     result
 }
 
-/// Scan all .jsonl files and reload the session map.
-/// Uses ClaudeProvider directly — no ProviderRegistry indirection needed.
+/// Build the provider registry with every supported agent CLI.
+fn build_provider_registry() -> ProviderRegistry {
+    let mut registry = ProviderRegistry::new();
+    registry.register(Box::new(ClaudeProvider::new()));
+    registry.register(Box::new(OpenCodeProvider::new()));
+    registry
+}
+
+/// Scan every registered provider and reload the session map.
 fn scan_sessions_into(sessions: &SessionMap) {
-    let provider = ClaudeProvider::new();
-    let scanned = provider.scan_sessions(MAX_SESSION_AGE);
+    let registry = build_provider_registry();
+    let scanned = registry.scan_all(MAX_SESSION_AGE);
     let mut map = sessions.lock().unwrap_or_else(|e| e.into_inner());
     map.clear();
     let mut loaded: usize = 0;
@@ -517,7 +525,7 @@ fn scan_sessions_into(sessions: &SessionMap) {
         map.insert(session.id.clone(), session);
         loaded += 1;
     }
-    log::info!("session poll: loaded {} sessions", loaded);
+    log::info!("session poll: loaded {} sessions across providers", loaded);
 }
 
 /// Tauri command: return current daemon health status.
