@@ -514,18 +514,44 @@ fn build_provider_registry() -> ProviderRegistry {
     registry
 }
 
+/// Merge scanned sessions into the map keyed by session id, keeping the most
+/// recently modified entry per id.
+///
+/// Why: when a Claude session is resumed (`claude --resume <id>`) a new JSONL
+/// file is created with the SAME session id stamped inside. Without this rule,
+/// last-write-wins HashMap insertion can mask the active resume with an older
+/// file from the same session, leaving the dashboard stuck showing idle while
+/// the user is actively chatting.
+///
+/// `modified_at` is RFC3339, emitted by `chrono::DateTime::to_rfc3339()` from
+/// both parser.rs (file mtime) and opencode.rs (sqlite `time_updated`). Same
+/// library, same format, so lexicographic comparison is safe today. If a
+/// future provider emits a different RFC3339 variant (e.g. `Z` vs `+00:00`,
+/// or a different timezone offset), switch to parsing into `DateTime<Utc>`
+/// before comparing.
+fn merge_sessions_by_newest(
+    map: &mut HashMap<String, SessionState>,
+    scanned: Vec<SessionState>,
+) {
+    for session in scanned {
+        let keep_existing = match map.get(&session.id) {
+            Some(existing) => existing.modified_at >= session.modified_at,
+            None => false,
+        };
+        if !keep_existing {
+            map.insert(session.id.clone(), session);
+        }
+    }
+}
+
 /// Scan every registered provider and reload the session map.
 fn scan_sessions_into(sessions: &SessionMap) {
     let registry = build_provider_registry();
     let scanned = registry.scan_all(MAX_SESSION_AGE);
     let mut map = sessions.lock().unwrap_or_else(|e| e.into_inner());
     map.clear();
-    let mut loaded: usize = 0;
-    for session in scanned {
-        map.insert(session.id.clone(), session);
-        loaded += 1;
-    }
-    log::info!("session poll: loaded {} sessions across providers", loaded);
+    merge_sessions_by_newest(&mut map, scanned);
+    log::info!("session poll: loaded {} unique sessions across providers", map.len());
 }
 
 /// Tauri command: return current daemon health status.
@@ -701,6 +727,69 @@ mod tests {
 
     fn make_manager() -> PipeManager {
         PipeManager::new()
+    }
+
+    fn fixture_session(id: &str, cwd: &str, modified_at: &str, status: &str) -> SessionState {
+        SessionState {
+            id: id.into(),
+            project: "p".into(),
+            cwd: cwd.into(),
+            status: status.into(),
+            last_output: String::new(),
+            tool_count: 0,
+            recent_tools: Vec::new(),
+            tty: String::new(),
+            started_at: String::new(),
+            modified_at: modified_at.into(),
+            provider: "claude".into(),
+        }
+    }
+
+    #[test]
+    fn merge_keeps_newest_session_per_id_regardless_of_order() {
+        // Regression: claude --resume creates a new JSONL file with the same
+        // sessionId. Last-write-wins HashMap insert masks the active resume
+        // with an older file. Merge must keep the newest.
+        let s_old = fixture_session("abc", "/old", "2026-05-01T00:00:00+00:00", "idle");
+        let s_new = fixture_session("abc", "/new", "2026-05-01T05:00:00+00:00", "waiting");
+
+        let mut map = HashMap::new();
+        merge_sessions_by_newest(&mut map, vec![s_old.clone(), s_new.clone()]);
+        assert_eq!(map.len(), 1, "duplicate ids must collapse to one entry");
+        assert_eq!(map.get("abc").unwrap().cwd, "/new");
+        assert_eq!(map.get("abc").unwrap().status, "waiting");
+
+        let mut map2 = HashMap::new();
+        merge_sessions_by_newest(&mut map2, vec![s_new, s_old]);
+        assert_eq!(map2.len(), 1);
+        assert_eq!(
+            map2.get("abc").unwrap().cwd,
+            "/new",
+            "newest must win regardless of input order"
+        );
+    }
+
+    #[test]
+    fn merge_keeps_distinct_ids() {
+        let s1 = fixture_session("a", "/p1", "2026-05-01T00:00:00+00:00", "idle");
+        let s2 = fixture_session("b", "/p2", "2026-05-01T00:00:00+00:00", "idle");
+        let mut map = HashMap::new();
+        merge_sessions_by_newest(&mut map, vec![s1, s2]);
+        assert_eq!(map.len(), 2);
+    }
+
+    #[test]
+    fn merge_keeps_existing_when_newer() {
+        // map already has the newest entry; scanned brings older one. Keep existing.
+        let mut map = HashMap::new();
+        map.insert(
+            "abc".into(),
+            fixture_session("abc", "/new", "2026-05-01T05:00:00+00:00", "waiting"),
+        );
+        let s_old = fixture_session("abc", "/old", "2026-05-01T00:00:00+00:00", "idle");
+        merge_sessions_by_newest(&mut map, vec![s_old]);
+        assert_eq!(map.get("abc").unwrap().cwd, "/new");
+        assert_eq!(map.get("abc").unwrap().status, "waiting");
     }
 
     #[test]
