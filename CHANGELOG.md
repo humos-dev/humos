@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.6.0] - 2026-05-01
+
+### Added
+- **Cross-vendor coordination via the Provider trait.** humOS now coordinates sessions across multiple agent CLIs at once. The first non-Claude adapter ships in this release: opencode (sst/opencode). Sessions appear in the dashboard with a `provider: opencode` badge alongside Claude Code sessions. Adding a third agent CLI in the future is a new file plus a registry entry, no changes to dispatch.
+- **OpenCodeProvider.** Reads opencode's sqlite database at `~/.local/share/opencode/opencode.db` (XDG path, honors `XDG_DATA_HOME`) read-only. Maps session rows to humOS `SessionState` with status derived from `time_updated` recency. All sqlite failure modes (open, prepare, query) log warnings so a future opencode upgrade that renames a column surfaces in logs instead of silently returning empty results.
+- **`signal()` fans across every registered provider.** `signal_sessions` now calls `ProviderRegistry::broadcast`, which iterates each registered provider and aggregates per-provider tab counts. A single signal hits Claude tabs and opencode tabs in one call.
+- **`broadcast_to_terminal_tabs_running(process_name, message)`.** Generic AppleScript helper extracted from the previous Claude-only `broadcast_to_all_claude_tabs`. Empty `process_name` is rejected to prevent broadcasting to every Terminal tab on the machine.
+- **OPENCODE badge in the session card.** Orange (`#fb923c`) accent that is visually distinct from Claude's green and Codex's purple.
+- **Test-mode update banner.** Setting `localStorage.humos-test-update-banner` to a version string forces the update banner to render against that fake version, bypassing the fetch and the dismiss-key check. Lets you verify the banner UI in dev or prod without shipping a real release. Clear with `localStorage.removeItem("humos-test-update-banner")`.
+- **`scripts/release.sh`.** One command that does the entire release: bumps `tauri.conf.json`, syncs `Cargo.toml` and `package.json`, builds the .app and ZIP, regenerates `docs/version.json`, commits, tags, pushes, and creates the GitHub release with notes pulled from the matching CHANGELOG section. Has `--dry-run` and safety checks for branch, working tree, gh CLI presence, and CHANGELOG section presence.
+- **`scripts/sync-versions.sh`.** Reads `tauri.conf.json` as canonical and propagates the version to `Cargo.toml [package]` and `package.json`. `--check` mode exits 1 on drift.
+- **`scripts/hooks/pre-commit` and `scripts/install-hooks.sh`.** Tracked pre-commit hook that blocks em dashes anywhere, AI-slop vocabulary in `.md` and `.html` files, and version-source drift when any of the three version files are staged. Run `./scripts/install-hooks.sh` once after clone.
+- **`PLAN-opencode-adapter.md`** in repo root. Spike report documenting the integration path decision (sqlite poller vs. HTTP API vs. ACP) and the schema mapping from opencode's session table to humOS `SessionState`.
+
+### Changed
+- **Landing page and README copy is agent-agnostic.** `Claude Code sessions` became `agent CLI sessions` in headlines, meta tags, and install requirements. Hero subline corrected so `pipe and signal ship today, join() next` no longer overstates `join()` as present-tense. Install requirements list both Claude Code and opencode with links. The "How it works" step that named only `~/.claude/projects/` now lists both data sources to match the FAQ.
+- **Update check errors are visible.** `useVersionCheck.ts` replaced the silent `catch {}` with `console.warn("humOS update check failed:", err)`. Network errors, the 3s timeout, and JSON parse failures all surface in the devtools console.
+
+### Fixed
+- **Active session no longer masked by older sibling JSONL.** When Claude Code dispatches subagents via the Agent tool, each subagent writes its own JSONL file stamped with the parent session's id. `scan_sessions_into` was using last-write-wins via `HashMap::insert`, which routinely picked an older agent file over the active conversation, leaving the active session stuck displaying as idle. Now uses `merge_sessions_by_newest` keyed on `modified_at`. The most recently modified file per session id always wins regardless of insertion order.
+- **opencode state path on macOS.** `dirs::data_dir()` returns `~/Library/Application Support` on macOS but opencode writes to `~/.local/share/opencode/` on every platform. The previous code returned `None` silently and humOS scanned zero opencode sessions. Now honors `XDG_DATA_HOME` if set, falls back to `~/.local/share/opencode/`.
+
+### Internal
+- Bumped `Cargo.toml` and `package.json` to 0.5.6 and added a sync script. `tauri.conf.json` was the canonical version source and had been at 0.5.6 for several releases; the other two files had drifted to 0.4.4.
+- `humOS.txt` and other Claude Code session exports gitignored. The previously-untracked `humOS.txt` was relocated to `~/.gstack/projects/humos/`.
+- `RELEASING.md` documents the release flow end to end including how to test the banner before each release and how to roll back.
+
 ## [0.5.6] — 2026-04-25
 
 ### Fixed
