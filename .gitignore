@@ -9,7 +9,7 @@ src-tauri/target/
 STRATEGY.md
 humos-private/
 
-# Claude Code session exports (do not commit — may contain strategy/IP)
+# Claude Code session exports. Do not commit. May contain strategy/IP.
 humOS.txt
 claude-session-*.txt
 *-session-export.txt
