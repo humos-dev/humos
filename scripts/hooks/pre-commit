@@ -97,6 +97,22 @@ if [ -n "$prose_files" ]; then
   fi
 fi
 
+# --------------------------------------------------------------------------
+# Check 3: version sources stay aligned.
+# tauri.conf.json is canonical. Cargo.toml [package] and package.json
+# must match. Caught here so a partial bump can never reach origin.
+# --------------------------------------------------------------------------
+version_touched=$(echo "$staged" | grep -E '^(src-tauri/(tauri\.conf\.json|Cargo\.toml)|package\.json)$' || true)
+if [ -n "$version_touched" ]; then
+  if ! ./scripts/sync-versions.sh --check >/dev/null 2>&1; then
+    printf "%s\n" "${RED}pre-commit: version sources are out of sync.${RESET}"
+    ./scripts/sync-versions.sh --check 2>&1 | sed 's/^/  /'
+    echo ""
+    echo "Run ./scripts/sync-versions.sh to align them."
+    fail=1
+  fi
+fi
+
 if [ "$fail" -ne 0 ]; then
   echo "Commit blocked. Fix the lines above, re-stage, retry."
   echo "Override (not recommended): git commit --no-verify"
