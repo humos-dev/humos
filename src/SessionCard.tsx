@@ -31,8 +31,9 @@ const STATUS_DOT: Record<SessionStatus, { color: string; label: string }> = {
 // Per-provider badge appearance. Unknown providers fall back to "?" in a
 // muted tone so new integrations never crash the card.
 const PROVIDER_BADGE: Record<string, { label: string; color: string; border: string; bg: string }> = {
-  claude:  { label: "Claude", color: "#3ecf8e", border: "rgba(62, 207, 142, 0.35)", bg: "rgba(62, 207, 142, 0.08)" },
-  codex:   { label: "Codex",  color: "#a78bfa", border: "rgba(167, 139, 250, 0.35)", bg: "rgba(167, 139, 250, 0.08)" },
+  claude:   { label: "Claude",   color: "#3ecf8e", border: "rgba(62, 207, 142, 0.35)", bg: "rgba(62, 207, 142, 0.08)" },
+  codex:    { label: "Codex",    color: "#a78bfa", border: "rgba(167, 139, 250, 0.35)", bg: "rgba(167, 139, 250, 0.08)" },
+  opencode: { label: "opencode", color: "#fb923c", border: "rgba(251, 146, 60, 0.35)", bg: "rgba(251, 146, 60, 0.08)" },
 };
 const PROVIDER_FALLBACK = { label: "?", color: "#777", border: "#333", bg: "#1a1a1a" };
 

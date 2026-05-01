@@ -13,8 +13,17 @@ impl OpenCodeProvider {
         Self
     }
 
+    /// opencode uses XDG paths on every platform, including macOS.
+    /// `dirs::data_dir()` would return `~/Library/Application Support`
+    /// on macOS (Apple convention), which is wrong. Honor `XDG_DATA_HOME`
+    /// if set, otherwise fall back to the XDG default `~/.local/share`.
     fn state_dir() -> Option<PathBuf> {
-        dirs::data_dir().map(|d| d.join("opencode"))
+        if let Ok(xdg) = std::env::var("XDG_DATA_HOME") {
+            if !xdg.is_empty() {
+                return Some(PathBuf::from(xdg).join("opencode"));
+            }
+        }
+        dirs::home_dir().map(|h| h.join(".local").join("share").join("opencode"))
     }
 
     fn db_path() -> Option<PathBuf> {
@@ -233,6 +242,34 @@ mod tests {
             let outside = PathBuf::from("/tmp/random");
             assert!(!p.owns_path(&outside));
         }
+    }
+
+    #[test]
+    fn test_state_dir_is_xdg_path_not_apple() {
+        // Regression: on macOS, dirs::data_dir() returns
+        // ~/Library/Application Support but opencode writes to
+        // ~/.local/share. The path must end with .local/share/opencode.
+        std::env::remove_var("XDG_DATA_HOME");
+        let dir = OpenCodeProvider::state_dir().unwrap();
+        let s = dir.to_string_lossy();
+        assert!(
+            s.ends_with(".local/share/opencode"),
+            "expected XDG path ending in .local/share/opencode, got {}",
+            s
+        );
+        assert!(
+            !s.contains("Library/Application Support"),
+            "must not use macOS Application Support path, got {}",
+            s
+        );
+    }
+
+    #[test]
+    fn test_state_dir_honors_xdg_data_home() {
+        std::env::set_var("XDG_DATA_HOME", "/tmp/custom-xdg");
+        let dir = OpenCodeProvider::state_dir().unwrap();
+        assert_eq!(dir, PathBuf::from("/tmp/custom-xdg/opencode"));
+        std::env::remove_var("XDG_DATA_HOME");
     }
 
     #[test]
