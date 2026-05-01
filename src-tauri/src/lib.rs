@@ -102,13 +102,13 @@ async fn signal_sessions(
         return Err("No active sessions.".to_string());
     }
 
-    // Signal broadcasts to ALL Claude terminal tabs at once, not per-session.
-    // This avoids the "first tab wins" bug where per-session inject_message
-    // always hits the same tab when title matching fails.
+    // Signal broadcasts to every registered provider's terminal tabs at once.
+    // Each provider matches its own process name (claude, opencode, etc.) so
+    // a single signal fans across every supported agent CLI.
     let msg_for_blocking = sanitized.clone();
     let targets_for_blocking = targets.clone();
     let results: Vec<SignalResult> = tokio::task::spawn_blocking(move || {
-        let broadcast_result = applescript::broadcast_to_all_claude_tabs(&msg_for_blocking);
+        let broadcast_result = build_provider_registry().broadcast(&msg_for_blocking);
         match broadcast_result {
             Ok(count) => {
                 log::info!("signal: broadcast to {} terminal tabs", count);

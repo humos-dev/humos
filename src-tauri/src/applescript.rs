@@ -426,11 +426,24 @@ end tell
     run_applescript(&script)
 }
 
-/// Broadcast a message to ALL Terminal tabs running a claude process.
-/// Used by signal() which needs every session to receive the message.
-/// Returns the number of tabs that received the injection.
-pub fn broadcast_to_all_claude_tabs(message: &str) -> Result<usize, String> {
+/// Broadcast a message to every Terminal tab whose process list contains
+/// `process_name`. Used by signal() to fan a message out to all matching
+/// agent CLIs at once.
+///
+/// `process_name` is matched as a substring against each tab's running
+/// processes (e.g. "claude", "opencode"). Returns the number of tabs that
+/// received the injection.
+pub fn broadcast_to_terminal_tabs_running(
+    process_name: &str,
+    message: &str,
+) -> Result<usize, String> {
+    if process_name.is_empty() {
+        // Empty substring matches every process — would broadcast to every
+        // Terminal tab on the machine, including non-agent shells.
+        return Err("broadcast_to_terminal_tabs_running: process_name is empty".to_string());
+    }
     let msg_escaped = escape_applescript(message);
+    let proc_escaped = escape_applescript(process_name);
 
     let script = format!(
         r#"
@@ -441,7 +454,7 @@ tell application "Terminal"
             try
                 set procList to processes of t
                 repeat with p in procList
-                    if p contains "claude" then
+                    if p contains "{proc_name}" then
                         do script "{message}" in t
                         set injectedCount to injectedCount + 1
                         exit repeat
@@ -453,6 +466,7 @@ tell application "Terminal"
     return injectedCount
 end tell
 "#,
+        proc_name = proc_escaped,
         message = msg_escaped,
     );
 
@@ -466,7 +480,7 @@ end tell
         let count_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
         let count = count_str.parse::<usize>().unwrap_or(0);
         if count == 0 {
-            Err("No Terminal tabs with claude found.".to_string())
+            Err(format!("No Terminal tabs running {} found.", process_name))
         } else {
             Ok(count)
         }
@@ -474,6 +488,12 @@ end tell
         let raw = String::from_utf8_lossy(&output.stderr).to_string();
         Err(wrap_applescript_error(&raw))
     }
+}
+
+/// Backwards-compatible shim. Prefer `broadcast_to_terminal_tabs_running`
+/// for new callers.
+pub fn broadcast_to_all_claude_tabs(message: &str) -> Result<usize, String> {
+    broadcast_to_terminal_tabs_running("claude", message)
 }
 
 fn run_applescript(script: &str) -> Result<(), String> {

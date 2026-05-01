@@ -161,11 +161,8 @@ impl Provider for OpenCodeProvider {
         Err(format!("Session {} has no cwd or tty", session.id))
     }
 
-    fn broadcast(&self, _message: &str) -> Result<usize, String> {
-        // TODO(v0.6.0 launch): generalize broadcast_to_all_claude_tabs to take a
-        // window-name match string. opencode windows do not contain "claude" so
-        // the existing helper will not pick them up.
-        Err("opencode broadcast not yet wired".into())
+    fn broadcast(&self, message: &str) -> Result<usize, String> {
+        applescript::broadcast_to_terminal_tabs_running("opencode", message)
     }
 }
 
