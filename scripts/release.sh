@@ -184,9 +184,44 @@ run gh release create "v$NEW" "$ZIP_PATH" \
   --title "v$NEW" \
   --notes "$NOTES"
 
+# ---- 9. Vercel alias humos.dev -> latest deploy ----
+#
+# Why: Vercel auto-deploys on push, but humos.dev was manually aliased once
+# in the past, which pinned it. Subsequent auto-deploys get their own
+# generated URLs and the production domain stays stuck on the pinned deploy.
+# This step re-aliases humos.dev to the most recent Ready deploy. Without
+# it, users keep seeing the old version.json forever.
+if [ "$DRY_RUN" -eq 0 ]; then
+  echo "==> Waiting up to 90s for Vercel deploy to be Ready..."
+  LATEST_DEPLOY=""
+  for i in $(seq 1 18); do
+    LATEST_DEPLOY=$(npx -y vercel ls --scope boluogunbiyis-projects 2>/dev/null \
+      | grep "boluogunbiyis-projects/humos" \
+      | grep "● Ready" \
+      | head -1 \
+      | awk '{print $3}' \
+      | sed 's|^https://||')
+    if [ -n "$LATEST_DEPLOY" ]; then
+      break
+    fi
+    sleep 5
+  done
+
+  if [ -z "$LATEST_DEPLOY" ]; then
+    echo "WARN: could not find a Ready Vercel deploy within 90s." >&2
+    echo "      humos.dev will keep serving the previous version." >&2
+    echo "      Run manually: npx vercel alias set <deploy-url> humos.dev --scope boluogunbiyis-projects" >&2
+  else
+    echo "==> Aliasing humos.dev to $LATEST_DEPLOY"
+    npx -y vercel alias set "$LATEST_DEPLOY" humos.dev --scope boluogunbiyis-projects
+  fi
+else
+  echo "DRY-RUN: npx vercel alias set <latest-deploy> humos.dev --scope boluogunbiyis-projects"
+fi
+
 echo ""
 echo "Released v$NEW."
 echo "  Tag:        https://github.com/humos-dev/humos/releases/tag/v$NEW"
-echo "  Vercel:     deploys docs/version.json in about a minute"
+echo "  humos.dev:  aliased to the latest Vercel deploy"
 echo "  Banner:     existing users see the update on next app launch"
 echo "  Verify:     curl https://humos.dev/version.json"
