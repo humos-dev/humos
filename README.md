@@ -1,8 +1,10 @@
 # humOS — Unix primitives for AI agent coordination
 
-A native macOS app that gives you pipe, signal, and (soon) join for your running Claude CLI sessions. Route output between sessions automatically. Broadcast a constraint to all of them at once. Stop being the message bus.
+A native macOS app that gives you pipe, signal, and (soon) join for your running agent CLI sessions. Route output between sessions automatically. Broadcast a constraint to all of them at once. **You are the message bus between your agents. humOS takes that job.**
 
-Built for developers who run 3 to 20 parallel Claude Code sessions and are tired of tab-switching to relay context between them. Conductor spawns its own sandboxed sessions. opcode reads JSONL files. claude-control shows a dashboard. humOS operates on the real sessions you already have open, and gives you primitives to coordinate them.
+Supports Claude Code and opencode out of the box. Codex CLI, Cursor, and Cline next.
+
+Built for developers who run 3 to 20 parallel agent sessions and are tired of tab-switching to relay context between them. Conductor spawns its own sandboxed sessions. opcode reads JSONL files. claude-control shows a dashboard. humOS operates on the real sessions you already have open, regardless of which agent CLI runs them, and gives you primitives to coordinate them.
 
 Unix gave developers fork, pipe, signal, and join to coordinate processes. Nothing equivalent exists for AI agents on your local machine. humOS is that layer.
 
@@ -24,8 +26,8 @@ One message. Every session receives it. Two-second undo in case you didn't mean 
 
 - **`pipe()`.** Route output from session A to session B automatically. When A goes idle or writes a file matching a glob, a message drops into B's terminal. No human relay. Rules persist in `~/.humOS/pipe-rules.json` and survive restarts.
 - **`signal()`.** Broadcast a single message to every active session at once. "Abort." "New constraint: don't touch auth.ts." "Pivot, here's the new direction." One click, all sessions receive it. 2-second undo window in case you typed something you shouldn't.
-- **Session dashboard.** Real-time view of every Claude CLI session on your machine, with project name, working directory, status (running, waiting, idle), tool call count, and last output line. Sessions update live via file watcher on `~/.claude/projects`.
-- **Per-card actions.** Focus brings the matching Terminal window to front. Send injects a message into one session. Summarize reads the JSONL, calls `claude -p`, and returns a two-sentence summary as a card overlay.
+- **Session dashboard.** Real-time view of every agent CLI session on your machine. Claude Code (read from `~/.claude/projects/`) and opencode (read from `~/.local/share/opencode/opencode.db`). Project name, working directory, status (running, waiting, idle), tool call count, last output line. Refreshed via periodic poll across every registered provider.
+- **Per-card actions.** Focus brings the matching Terminal window to front. Send injects a message into one session. Summarize (Claude Code only today) reads the JSONL, calls `claude -p`, and returns a two-sentence summary as a card overlay.
 
 ---
 
@@ -51,7 +53,7 @@ brew tap humos-dev/humos && brew install --cask humos
 
 ### Option 2: Download ZIP
 
-1. Download `humOS_0.5.4_arm64.zip` from [GitHub Releases](https://github.com/humos-dev/humos/releases/latest)
+1. Download the latest `humOS_X.Y.Z_arm64.zip` from [GitHub Releases](https://github.com/humos-dev/humos/releases/latest)
 2. Unzip the archive
 3. Run the following command to clear the macOS quarantine flag:
    ```bash
@@ -63,13 +65,13 @@ brew tap humos-dev/humos && brew install --cask humos
 **Requirements:**
 - macOS 13 or later (Apple Silicon)
 - Terminal.app or iTerm2
-- Claude CLI installed and actively in use
+- At least one supported agent CLI installed and actively in use: [Claude Code](https://www.anthropic.com/claude-code), [opencode](https://opencode.ai)
 
 ---
 
 ## Quickstart
 
-1. Launch humOS. Your Claude sessions appear automatically, sorted running → waiting → idle.
+1. Launch humOS. Your agent sessions appear automatically (Claude Code + opencode), sorted running → waiting → idle.
 2. Click **Pipes**, add a rule (session A → session B, trigger: `OnIdle`), hit **Add**.
 3. Do work in session A. When it goes idle, watch your pipe message land in session B's terminal.
 
@@ -79,18 +81,25 @@ That's the primitive. Everything else is variations on it.
 
 ## Status and roadmap
 
-**Shipped (v0.5.4):**
-- Session dashboard with live file watching — grid and list view with toggle
+**Shipped (v0.5.6):**
+- Session dashboard with grid and list view toggle, periodic poll across every provider
 - `pipe()` with `OnIdle` and `OnFileWrite` triggers, persistent canvas edges, pipe history footer
-- `signal()` broadcast with undo window, partial-failure reporting, and per-card flash states
+- `signal()` broadcast with undo window, partial-failure reporting, and per-card flash states. Fans out across every registered agent CLI in one call.
 - Focus / Send / Summarize per-card actions (grid and list view)
 - Dead session indicator with one-click resume command copy
 - Project Brain ribbon (cross-session context awareness via daemon)
+- In-app update notifications (polls humos.dev/version.json on startup, per-version dismiss)
+- **Provider trait abstraction with Claude Code adapter (live)**
 
-**Next up:**
-- `join()` — wait for multiple sessions to complete, then aggregate their outputs
-- Orchestrator session — a Claude session that coordinates other sessions autonomously
-- Agent agnosticism — Cursor, Aider, Codex CLI, and custom agents via `~/.humOS/sessions/<agent>/<id>.jsonl`
+**v0.6.0 (in flight):**
+- **opencode adapter.** Reads opencode's sqlite database at `~/.local/share/opencode/opencode.db`, surfaces sessions with `provider: opencode`. signal() broadcasts to opencode tabs alongside Claude tabs in one call.
+- LP + README rewrite: agent-agnostic copy, opencode visible in install requirements
+- Cross-vendor demo: Claude + opencode side-by-side, signal() broadcasts to both
+
+**Next after v0.6.0:**
+- `join()`. Wait for multiple sessions to complete, then aggregate their outputs.
+- Orchestrator session. An agent session that coordinates other sessions autonomously.
+- More adapters: Codex CLI (v0.7), Cursor + Cline (v0.8+)
 - iTerm2 support
 
 Full backlog and primitive specs live in [`TODOS.md`](TODOS.md).
@@ -99,7 +108,7 @@ Full backlog and primitive specs live in [`TODOS.md`](TODOS.md).
 
 ## Why now
 
-Multi-session workflows are becoming the default way power users run Claude Code. If you're already running four sessions in parallel and acting as the message bus between them, you're the target user.
+Multi-session workflows are becoming the default way power users run agent CLIs. Anthropic shipped a multi-session sidebar in Claude Code. opencode ships native session management. The race is unwinnable on any single vendor's turf. But no agent vendor will ever coordinate sessions across competitors. That's where humOS lives. If you're already running four agent sessions in parallel and acting as the message bus between them, you're the target user.
 
 ---
 

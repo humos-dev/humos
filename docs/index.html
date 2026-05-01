@@ -4,16 +4,16 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>humOS: Unix primitives for AI agents</title>
-  <meta name="description" content="Compose your Claude Code sessions the way Unix composes processes. Locally, on the sessions you already have open. Open source, MIT." />
+  <meta name="description" content="Compose your agent CLI sessions the way Unix composes processes. Claude Code, opencode, more. Locally, on the sessions you already have open. Open source, MIT." />
   <meta property="og:title" content="humOS: Unix primitives for AI agents" />
-  <meta property="og:description" content="pipe, signal, and (soon) join for your Claude Code sessions. Runs locally. No API costs." />
+  <meta property="og:description" content="pipe, signal, and (soon) join for your agent CLI sessions. Claude Code, opencode, more. Runs locally. No API costs." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://humos.dev" />
   <link rel="canonical" href="https://humos.dev/" />
   <meta name="theme-color" content="#080808" />
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="humOS: Unix primitives for AI agents" />
-  <meta name="twitter:description" content="pipe, signal, and (soon) join for your Claude Code sessions. Runs locally. No API costs." />
+  <meta name="twitter:description" content="pipe, signal, and (soon) join for your agent CLI sessions. Claude Code, opencode, more. Runs locally. No API costs." />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⌁</text></svg>" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -546,9 +546,9 @@
   <!-- ===== HERO ===== -->
   <section class="hero">
     <div class="wrap">
-      <div class="kicker">⌁ v0.5.4 · macOS · open source · <a href="https://github.com/humos-dev/humos" target="_blank" rel="noopener noreferrer" style="text-decoration:none"><img src="https://img.shields.io/github/stars/humos-dev/humos?style=flat&color=3ecf8e&labelColor=111111" alt="GitHub stars" style="vertical-align:middle;height:18px" /></a></div>
+      <div class="kicker">⌁ v0.5.6 · macOS · open source · <a href="https://github.com/humos-dev/humos" target="_blank" rel="noopener noreferrer" style="text-decoration:none"><img src="https://img.shields.io/github/stars/humos-dev/humos?style=flat&color=3ecf8e&labelColor=111111" alt="GitHub stars" style="vertical-align:middle;height:18px" /></a></div>
       <h1>Unix primitives for <span class="accent">AI agents.</span></h1>
-      <p class="sub">pipe, signal, and join for your running Claude Code sessions. Stop being the message bus between your agents. Runs locally. No API key.</p>
+      <p class="sub">pipe and signal across your running agent CLI sessions. Claude Code and opencode today, join() next. Stop being the message bus between your agents. Runs locally. No API key.</p>
       <div class="install-row">
         <div class="cmd-wrap">
           <code class="cmd"><span class="prompt">$</span>brew tap humos-dev/humos &amp;&amp; brew install --cask humos</code>
@@ -595,9 +595,9 @@
       <h2>How it works</h2>
       <h3 class="headline">No API. No proxy. No new agent to install.</h3>
       <ol class="steps">
-        <li>humOS watches <code>~/.claude/projects/</code> for live sessions.</li>
+        <li>humOS watches your agent CLI session stores: <code>~/.claude/projects/</code> for Claude Code, <code>~/.local/share/opencode/opencode.db</code> for opencode.</li>
         <li>You set up pipe rules or trigger a signal from the dashboard.</li>
-        <li>humOS injects messages directly into the Claude CLI prompt via Terminal.app.</li>
+        <li>humOS injects messages directly into each agent CLI's prompt via Terminal.app. Works with Claude Code, opencode, or any Terminal-resident TUI.</li>
         <li>Your sessions coordinate. You review the output.</li>
       </ol>
     </div>
@@ -682,7 +682,7 @@
   <section class="why-now">
     <div class="wrap">
       <h2>Status</h2>
-      <h3 class="headline">v0.5.4. Built by one person. MIT licensed.</h3>
+      <h3 class="headline">v0.5.6. Built by one person. MIT licensed.</h3>
       <p class="body">pipe() and signal() ship today. join() is next. macOS only. Linux and Windows are not planned. If it breaks, <a href="https://github.com/humos-dev/humos/issues" target="_blank" rel="noopener noreferrer" style="color: var(--signal)">file an issue</a>.</p>
       <span class="closer">▸ If you're running 5 Claude sessions right now, you are already the target user.</span>
     </div>
@@ -692,7 +692,7 @@
   <section id="install">
     <div class="wrap">
       <h2>Install</h2>
-      <p class="body" style="margin-bottom: 24px;">Built for developers running 3+ parallel Claude Code sessions on macOS.</p>
+      <p class="body" style="margin-bottom: 24px;">Built for developers running 3+ parallel agent CLI sessions on macOS. Claude Code, opencode, or both side-by-side.</p>
       <h3 class="headline">Two ways to install. No API key. No account.</h3>
       <div class="install-block">
         <div style="margin-bottom: 8px; font-family: var(--mono); font-size: 12px; color: var(--signal); text-transform: uppercase; letter-spacing: 0.08em;">Option 1: Homebrew (recommended)</div>
@@ -702,7 +702,7 @@
         </div>
         <div style="margin-top: 24px; margin-bottom: 8px; font-family: var(--mono); font-size: 12px; color: var(--signal); text-transform: uppercase; letter-spacing: 0.08em;">Option 2: Download ZIP</div>
         <div style="color: var(--text-1); font-size: 14.5px; line-height: 1.7;">
-          1. Download <a href="https://github.com/humos-dev/humos/releases/latest" target="_blank" rel="noopener noreferrer" style="color: var(--signal); border-bottom: 1px dashed var(--signal-line);">humOS_0.5.4_arm64.zip</a> from GitHub Releases<br/>
+          1. Download the latest <a href="https://github.com/humos-dev/humos/releases/latest" target="_blank" rel="noopener noreferrer" style="color: var(--signal); border-bottom: 1px dashed var(--signal-line);">humOS_X.Y.Z_arm64.zip</a> from GitHub Releases<br/>
           2. Unzip the archive<br/>
           3. Run in Terminal: <code>xattr -cr ~/Downloads/humOS.app</code><br/>
           4. Drag <strong style="color: var(--text);">humOS.app</strong> to Applications and open normally<br/>
@@ -724,7 +724,7 @@
         </details>
         <details class="faq-item">
           <summary class="faq-q">What data does it access?</summary>
-          <p class="faq-a">Reads <code>~/.claude/projects/</code> (Claude CLI session files). Writes pipe rules to <code>~/.humOS/pipe-rules.json</code>. Nothing else. No network calls, no cloud, no telemetry.</p>
+          <p class="faq-a">Reads <code>~/.claude/projects/</code> (Claude Code session files) and <code>~/.local/share/opencode/opencode.db</code> (opencode session database, opened read-only). Writes pipe rules to <code>~/.humOS/pipe-rules.json</code>. Nothing else. No network calls, no cloud, no telemetry.</p>
         </details>
         <details class="faq-item">
           <summary class="faq-q">Does it run in the background?</summary>
