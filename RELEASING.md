@@ -138,6 +138,22 @@ exercise:
 All three are now logged via `console.warn`, so open the devtools
 console to see why the banner is missing.
 
+## Stale .app cleanup
+
+After running the curl/unzip update on a user machine, stray `humOS.app`
+copies can survive in `~/Downloads`, `~/Desktop`, or other folders from
+prior install attempts. Spotlight and the Dock can then surface the wrong
+copy. The cleanup helper finds and (optionally) deletes them:
+
+```
+./scripts/find-stale-installs.sh           # report only
+./scripts/find-stale-installs.sh --delete  # delete with confirmation prompt
+```
+
+Scans `~/Downloads`, `~/Desktop`, `~/Documents`, `$HOME`, `/tmp`, and any
+mounted volumes. The canonical install at `/Applications/humOS.app` is
+always excluded.
+
 ## Rollback
 
 If a release ships broken:
