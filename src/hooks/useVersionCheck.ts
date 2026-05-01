@@ -24,6 +24,19 @@ export function useVersionCheck(): VersionCheckResult {
     let cancelled = false;
 
     async function check() {
+      // Test-mode override: set `localStorage.humos-test-update-banner` to a
+      // version string from devtools (e.g. "9.9.9") to force the banner to
+      // render against that fake version, bypassing fetch and dismiss state.
+      // Lets you verify the banner UI before each release without shipping.
+      // Clear it with `localStorage.removeItem("humos-test-update-banner")`.
+      const testVersion = localStorage.getItem("humos-test-update-banner");
+      if (testVersion && !cancelled) {
+        const v = testVersion.replace(/^v/, "");
+        setNewVersion(v);
+        setReleaseUrl(`https://github.com/humos-dev/humos/releases/tag/v${v}`);
+        return;
+      }
+
       try {
         const current = await getVersion();
 
@@ -41,12 +54,14 @@ export function useVersionCheck(): VersionCheckResult {
           const dismissed = localStorage.getItem(`humos-dismissed-v${data.version}`);
           if (!dismissed) {
             setNewVersion(data.version);
-            // Use the url from version.json — always points to a real release.
+            // Use the url from version.json. Always points to a real release.
             setReleaseUrl(data.url ?? `https://github.com/humos-dev/humos/releases/latest`);
           }
         }
-      } catch {
-        // Network error, timeout, or parse failure — silently skip.
+      } catch (err) {
+        // Surface the error in dev so a broken update check is visible.
+        // Network errors, 3s timeouts, and parse failures all land here.
+        console.warn("humOS update check failed:", err);
       }
     }
 
