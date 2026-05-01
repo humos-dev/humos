@@ -215,8 +215,45 @@ if [ "$DRY_RUN" -eq 0 ]; then
     echo "==> Aliasing humos.dev to $LATEST_DEPLOY"
     npx -y vercel alias set "$LATEST_DEPLOY" humos.dev --scope boluogunbiyis-projects
   fi
+
+  # ---- 10. Production smoke test ----
+  #
+  # The cadence rule: never trust a release until humos.dev itself returns
+  # the new version. Earlier gates (build, push, gh release, alias) all
+  # passed before but the production endpoint kept serving stale content.
+  # This step is the single check that proves end-to-end the release is
+  # actually reachable to users. Without it, every prior step is just
+  # confidence theater.
+  echo "==> Production smoke: polling https://humos.dev/version.json..."
+  smoke_ok=0
+  for i in $(seq 1 12); do
+    served=$(curl -sS --max-time 5 -H "Cache-Control: no-cache" \
+      "https://humos.dev/version.json?_=$(date +%s)" 2>/dev/null \
+      | python3 -c 'import json, sys
+try: print(json.load(sys.stdin).get("version", ""))
+except: print("")' 2>/dev/null)
+    if [ "$served" = "$NEW" ]; then
+      smoke_ok=1
+      echo "    humos.dev/version.json returns $NEW (after ${i}0s)"
+      break
+    fi
+    echo "    attempt $i: served=$served (expected $NEW), retrying"
+    sleep 10
+  done
+
+  if [ "$smoke_ok" -ne 1 ]; then
+    echo "" >&2
+    echo "ERROR: production smoke test failed." >&2
+    echo "  humos.dev/version.json never returned $NEW after 120s." >&2
+    echo "  The release is published on GitHub but users will not see the banner." >&2
+    echo "  Investigate the Vercel deploy and rerun:" >&2
+    echo "    npx vercel ls --scope boluogunbiyis-projects" >&2
+    echo "    npx vercel alias set <deploy-url> humos.dev --scope boluogunbiyis-projects" >&2
+    exit 1
+  fi
 else
   echo "DRY-RUN: npx vercel alias set <latest-deploy> humos.dev --scope boluogunbiyis-projects"
+  echo "DRY-RUN: poll humos.dev/version.json until it returns $NEW (or exit 1 after 120s)"
 fi
 
 echo ""
