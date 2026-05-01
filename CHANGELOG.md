@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.1] - 2026-05-01
+
+### Fixed
+- **Activity log no longer drops or duplicates entries on app restart.** The log entry id counter reset to 0 on every app launch, but the log itself was persisted to localStorage with ids 0..N from the prior session. New entries got ids starting at 0 again, colliding with restored ones. React's reconciliation could silently drop or duplicate entries during render. Fixed by seeding the counter from the highest persisted id, plus a composite React key (`${id}-${ts}`) for defense in depth.
+- **Test-mode banner link points at `/releases/latest` instead of a constructed `/tag/v<fake>` URL.** When a developer tests the banner UI by setting `localStorage.humos-test-update-banner` to a fake version, the link now resolves to a real GitHub releases page rather than a 404. Production code path unchanged.
+
+### Internal
+- New `scripts/find-stale-installs.sh` detects orphan `humOS.app` copies in `~/Downloads`, `~/Desktop`, `~/Documents`, `$HOME`, `/tmp`, and mounted volumes. Optional `--delete` mode removes them after a confirmation prompt. Documented in `RELEASING.md`.
+- `scripts/release.sh` now runs `scripts/preflight.sh` (cargo test, tsc, hook installed, version sync) before any mutation, and `scripts/find-stale-installs.sh` is available for post-install cleanup. Pre-commit hook now also enforces version-source sync when any of the three version files are staged.
+
 ## [0.6.0] - 2026-05-01
 
 ### Added
