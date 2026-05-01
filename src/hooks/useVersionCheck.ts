@@ -33,7 +33,12 @@ export function useVersionCheck(): VersionCheckResult {
       if (testVersion && !cancelled) {
         const v = testVersion.replace(/^v/, "");
         setNewVersion(v);
-        setReleaseUrl(`https://github.com/humos-dev/humos/releases/tag/v${v}`);
+        // Test-mode link points at /releases/latest, not a constructed
+        // /tag/v<fake>. The fake version does not exist on GitHub, so a
+        // tag-URL would 404 and confuse anyone clicking through during a
+        // banner test. /latest always resolves to the real most-recent
+        // release, which is what test-mode is meant to simulate.
+        setReleaseUrl("https://github.com/humos-dev/humos/releases/latest");
         return;
       }
 
