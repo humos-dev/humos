@@ -57,7 +57,7 @@ brew tap humos-dev/humos && brew install --cask humos
 curl -fsSL https://humos.dev/install.sh | sh
 ```
 
-Downloads the latest release, clears macOS quarantine, and installs to `/Applications` automatically.
+Downloads the latest release, clears the macOS Gatekeeper quarantine flag from the extracted app, and installs to `/Applications` automatically.
 
 ### Option 3: Manual ZIP
 

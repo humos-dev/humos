@@ -8,8 +8,19 @@ if [ "$(uname -m)" != "arm64" ]; then
   exit 1
 fi
 
+# Clean up temp dir on any exit (success or failure).
+TMPDIR=$(mktemp -d)
+trap 'rm -rf "$TMPDIR"' EXIT
+
 echo "Finding latest humOS release..."
-DOWNLOAD_URL=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" \
+API_RESPONSE=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" 2>&1 || true)
+
+if echo "$API_RESPONSE" | grep -q '"API rate limit exceeded"'; then
+  echo "GitHub API rate limit hit. Wait a few minutes and try again." >&2
+  exit 1
+fi
+
+DOWNLOAD_URL=$(echo "$API_RESPONSE" \
   | grep '"browser_download_url"' \
   | grep 'arm64\.zip' \
   | head -1 \
@@ -20,14 +31,9 @@ if [ -z "$DOWNLOAD_URL" ]; then
   exit 1
 fi
 
-TMPDIR=$(mktemp -d)
 ZIP="$TMPDIR/humos.zip"
-
 echo "Downloading $DOWNLOAD_URL..."
 curl -fL --progress-bar "$DOWNLOAD_URL" -o "$ZIP"
-
-# Clear quarantine before extracting so the app inherits none of it.
-xattr -cr "$ZIP"
 
 echo "Extracting..."
 unzip -q "$ZIP" -d "$TMPDIR"
@@ -35,9 +41,12 @@ unzip -q "$ZIP" -d "$TMPDIR"
 APP=$(find "$TMPDIR" -name "humOS.app" -maxdepth 2 | head -1)
 if [ -z "$APP" ]; then
   echo "humOS.app not found in archive." >&2
-  rm -rf "$TMPDIR"
   exit 1
 fi
+
+# Clear Gatekeeper quarantine from the extracted app bundle.
+echo "Clearing macOS quarantine..."
+xattr -cr "$APP"
 
 if [ -d "/Applications/humOS.app" ]; then
   echo "Removing existing /Applications/humOS.app..."
@@ -45,9 +54,12 @@ if [ -d "/Applications/humOS.app" ]; then
 fi
 
 echo "Installing to /Applications..."
-mv "$APP" /Applications/humOS.app
-
-rm -rf "$TMPDIR"
+if [ -w "/Applications" ]; then
+  mv "$APP" /Applications/humOS.app
+else
+  echo "Need admin access to install to /Applications (you may be prompted for your password)."
+  sudo mv "$APP" /Applications/humOS.app
+fi
 
 echo ""
 echo "humOS installed. Open it with:"

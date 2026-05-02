@@ -714,8 +714,9 @@
           4. Open normally
         </div>
         <div style="margin-top: 12px; padding: 10px 14px; background: rgba(234,179,8,0.07); border: 1px solid rgba(234,179,8,0.25); border-radius: 5px; font-size: 13px; color: #ca8a04; line-height: 1.6;">
-          <strong>macOS says "damaged and can't be opened"?</strong> This is Gatekeeper blocking an unsigned app. humOS is not damaged. Run in Terminal:<br/>
-          <code style="color: #fbbf24;">xattr -cr /Applications/humOS.app</code> &mdash; then open again.
+          <strong>macOS says "damaged and can't be opened"?</strong> This is Gatekeeper blocking an unsigned app. humOS is not damaged. Run in Terminal then open again:<br/>
+          <code style="color: #fbbf24; display: block; margin-top: 4px;">xattr -cr /Applications/humOS.app</code>
+          <span style="font-size: 12px; color: #a16207;">Still in Downloads? Use <code style="color: #fbbf24;">xattr -cr ~/Downloads/humOS.app</code> instead.</span>
         </div>
         <div class="install-meta" style="margin-top: 20px;">requires macOS 13+ · Apple Silicon · Terminal.app or iTerm2 · MIT licensed</div>
       </div>

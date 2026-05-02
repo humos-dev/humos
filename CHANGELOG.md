@@ -8,6 +8,10 @@
 - **"in this repo" corrected to "in this directory".** The ribbon subtitle grouped sessions by working directory (`cwd`), not by git repository. The label was factually wrong for monorepos and non-git directories.
 - **"index rebuilding" replaced with "updating..." in the stale state.** The previous copy exposed daemon implementation vocabulary to users at exactly the moment the system is degraded. "updating..." is accurate and user-facing.
 - **App.tsx restored after file was wiped to 0 bytes.**
+- **install.sh: quarantine now cleared on extracted .app, not the ZIP.** Clearing xattr on the ZIP before extraction is not sufficient; Gatekeeper checks the app bundle itself. Fixed to run `xattr -cr` on the extracted `humOS.app`.
+- **install.sh: EXIT trap added.** Temp dir now cleaned up on all exit paths including mid-download failures.
+- **install.sh: rate-limit and write-permission handling.** GitHub API rate limit now surfaces a clear message. Install to /Applications escalates with sudo if the directory is not writable.
+- **Landing page amber callout updated** to include the Downloads path variant for users who have not yet moved the app.
 
 ### Medium findings (not auto-fixed - require design decisions)
 - List-view path does not render BrainRibbon at all; the session-focus shortcut is unavailable in list mode
