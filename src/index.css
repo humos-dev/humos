@@ -451,6 +451,36 @@ body {
   align-items: center;
   gap: 10px;
 }
+.update-banner__cmd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-left: 1px solid rgba(59, 130, 246, 0.18);
+  border-right: 1px solid rgba(59, 130, 246, 0.18);
+  padding: 0 14px;
+  height: 100%;
+}
+.update-banner__cmd-text {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-3);
+  white-space: nowrap;
+  letter-spacing: 0;
+}
+.update-banner__copy {
+  font-size: 9px;
+  font-family: var(--font);
+  color: var(--coord);
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 3px;
+  padding: 1px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.1s;
+  flex-shrink: 0;
+}
+.update-banner__copy:hover { opacity: 0.8; }
 .update-banner__link {
   font-size: 10px;
   color: var(--coord);
