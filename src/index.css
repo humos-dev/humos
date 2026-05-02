@@ -1,4 +1,4 @@
-/* ── Design tokens — keep in sync with src/tokens.ts ─────────── */
+/* -- Design tokens - keep in sync with src/tokens.ts ----------─ */
 /* Semantic rule: --signal (green) = session health. --coord (blue) = coordination. Never swap. */
 :root {
   --bg:          #080808;
@@ -20,7 +20,7 @@
   --grid-line:   #0e0e0e;
 }
 
-/* ── Reset ───────────────────────────────────────────────────── */
+/* -- Reset ----------------------------------------------------─ */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -39,13 +39,13 @@ body {
   min-height: 100vh;
 }
 
-/* ── Focus ring (keyboard navigation) ───────────────────────── */
+/* -- Focus ring (keyboard navigation) ------------------------─ */
 :focus-visible {
   outline: 2px solid #4ade80;
   outline-offset: 2px;
 }
 
-/* ── Scrollbar ───────────────────────────────────────────────── */
+/* -- Scrollbar ------------------------------------------------─ */
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -59,7 +59,7 @@ body {
   border-radius: 3px;
 }
 
-/* ── Animations ──────────────────────────────────────────────── */
+/* -- Animations ------------------------------------------------ */
 @keyframes breathe {
   0%, 100% { opacity: 1; transform: scale(1); }
   50%       { opacity: 0.5; transform: scale(0.75); }
@@ -70,7 +70,7 @@ body {
   50%       { transform: scaleY(1); }
 }
 
-/* ── Session card ────────────────────────────────────────────── */
+/* -- Session card ---------------------------------------------- */
 .session-card {
   position: relative;
   background: var(--surface);
@@ -237,11 +237,15 @@ body {
   padding: 3px 4px;
   border-radius: 3px;
 }
-.brain-ribbon__item:hover,
+.brain-ribbon__item:hover {
+  color: #e8e8e8;
+  background: rgba(255,255,255,0.04);
+}
 .brain-ribbon__item:focus-visible {
   color: #e8e8e8;
   background: rgba(255,255,255,0.04);
-  outline: none;
+  outline: 2px solid #3ecf8e;
+  outline-offset: 1px;
 }
 .brain-ribbon__item-snippet {
   flex: 1;
@@ -329,7 +333,7 @@ body {
   border-color: color-mix(in srgb, var(--coord) 30%, var(--border));
 }
 
-/* ── View toggle ─────────────────────────────────────────────── */
+/* -- View toggle ----------------------------------------------─ */
 .view-toggle {
   display: flex;
   border: 1px solid var(--border-2);
@@ -352,7 +356,7 @@ body {
 .view-toggle__btn--active { background: rgba(59,130,246,.1); color: var(--coord); }
 .view-toggle__btn:hover:not(.view-toggle__btn--active) { color: var(--text-2); }
 
-/* ── List view ───────────────────────────────────────────────── */
+/* -- List view ------------------------------------------------─ */
 .session-list-view {
   display: flex;
   flex-direction: column;
@@ -419,7 +423,7 @@ body {
   color: var(--text-3);
 }
 
-/* ── Update Banner (Direction A — Signal Strip) ──────────────── */
+/* -- Update Banner (Direction A - Signal Strip) ---------------- */
 .update-banner {
   display: flex;
   align-items: center;
@@ -503,7 +507,7 @@ body {
   animation: breathe 1.6s ease-in-out infinite;
 }
 
-/* ── Activity log ────────────────────────────────────────────── */
+/* -- Activity log ---------------------------------------------- */
 .activity-log {
   position: fixed;
   bottom: 0;
@@ -536,7 +540,7 @@ body {
   to   { opacity: 1; transform: translateX(0); }
 }
 
-/* ── Waveform header mark ────────────────────────────────────── */
+/* -- Waveform header mark -------------------------------------- */
 .waveform {
   display: flex;
   align-items: center;
@@ -557,7 +561,7 @@ body {
 .waveform--active .waveform__bar:nth-child(2) { animation: waveform-bar 0.9s ease-in-out infinite 0.15s; }
 .waveform--active .waveform__bar:nth-child(3) { animation: waveform-bar 0.9s ease-in-out infinite 0.3s; }
 
-/* ── Grid background (coordinate space) ─────────────────────── */
+/* -- Grid background (coordinate space) ----------------------─ */
 .app-grid-bg {
   background-image:
     linear-gradient(var(--grid-line) 1px, transparent 1px),
@@ -566,7 +570,7 @@ body {
   background-color: var(--bg);
 }
 
-/* ── Pipe fire canvas ────────────────────────────────────────── */
+/* -- Pipe fire canvas ------------------------------------------ */
 .pipe-fire-canvas {
   position: fixed;
   inset: 0;
@@ -574,7 +578,7 @@ body {
   z-index: 50;
 }
 
-/* ── Pipe config drawer ──────────────────────────────────────── */
+/* -- Pipe config drawer ---------------------------------------- */
 .pipe-config__overlay {
   position: fixed;
   inset: 0;
@@ -730,7 +734,7 @@ body {
   color: #f87171;
 }
 
-/* ── Signal flash animations ─────────────────────────────────── */
+/* -- Signal flash animations ----------------------------------─ */
 @keyframes signal-success-flash {
   0%   { box-shadow: 0 0 0 0 rgba(62, 207, 142, 0.7); border-color: #3ecf8e; }
   40%  { box-shadow: 0 0 0 6px rgba(62, 207, 142, 0.3); border-color: #3ecf8e; }
@@ -751,12 +755,12 @@ body {
   animation: signal-fail-flash 1s ease-out forwards;
 }
 
-/* ── Signal command bar ──────────────────────────────────────── */
+/* -- Signal command bar ---------------------------------------- */
 /*
  * In-flow element that sits between the header and the session grid.
  * Opens above the grid (pushes cards down 40px) so it doesn't hide
  * the first row of cards. No absolute overlay. No layout-shift animation
- * beyond the natural flow change — opening is instant.
+ * beyond the natural flow change - opening is instant.
  */
 .signal-command-bar {
   display: flex;
@@ -855,7 +859,7 @@ body {
   white-space: nowrap;
 }
 
-/* ── Expandable activity view ──────────────────────────────── */
+/* -- Expandable activity view -------------------------------- */
 .session-card__activity {
   position: relative;
   cursor: pointer;
@@ -942,7 +946,7 @@ body {
   color: var(--border-2);
 }
 
-/* ── Onboarding empty state ─────────────────────────────────── */
+/* -- Onboarding empty state ----------------------------------─ */
 .onboarding {
   display: flex;
   align-items: center;
@@ -1049,7 +1053,7 @@ body {
   animation: onboarding-pulse 2s ease-in-out infinite;
 }
 
-/* ── Reduced motion ─────────────────────────────────────────── */
+/* -- Reduced motion ------------------------------------------─ */
 @media (prefers-reduced-motion: reduce) {
   .onboarding__skeleton,
   .onboarding__status-dot {

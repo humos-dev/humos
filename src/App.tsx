@@ -403,17 +403,17 @@ export default function App() {
   }, [sessions, relatedContexts, dismissed]);
 
   // Persist activity log to localStorage on every change.
-  // Error entries are shown in-session but NOT persisted — they're transient.
+  // Error entries are shown in-session but NOT persisted - they're transient.
   useEffect(() => {
     try {
       const persistable = log.filter((e) => !e.isError).slice(0, LOG_MAX);
       localStorage.setItem(LOG_KEY, JSON.stringify(persistable));
     } catch {
-      // localStorage unavailable in some Tauri configs — silent fail.
+      // localStorage unavailable in some Tauri configs - silent fail.
     }
   }, [log]);
 
-  // Listen for pipe-fired events — animate and log.
+  // Listen for pipe-fired events - animate and log.
   useEffect(() => {
     let cancelAnim: (() => void) | null = null;
 
@@ -469,7 +469,7 @@ export default function App() {
       cancelAnim?.();
       unlisten.then((f) => f());
     };
-  }, []); // stable — reads sessionsRef, not sessions state
+  }, []); // stable - reads sessionsRef, not sessions state
 
   // Resize canvas to window and redraw edges (setting width/height clears canvas).
   useEffect(() => {
@@ -520,7 +520,7 @@ export default function App() {
   }, []);
 
   // Close only the currently-open modal with Escape. Signal bar takes priority
-  // if both are somehow open — but the mutual-exclusion logic on toggle should
+  // if both are somehow open - but the mutual-exclusion logic on toggle should
   // prevent that.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -543,7 +543,7 @@ export default function App() {
     }
   }, [signalOpen]);
 
-  // Listen for signal-fired events — flash cards and log.
+  // Listen for signal-fired events - flash cards and log.
   useEffect(() => {
     const unlisten = listen<SignalFiredEvent>("signal-fired", (event) => {
       const { success_ids, fail_ids, message, success_count, fail_count } = event.payload;
@@ -568,7 +568,7 @@ export default function App() {
       }
 
       const preview = message.length > 40 ? message.slice(0, 40) + "…" : message;
-      // Suppress log entry when zero sessions received the message — a failure-only
+      // Suppress log entry when zero sessions received the message - a failure-only
       // entry is emitted from handleSignalSubmit instead.
       if (success_count > 0) {
         const failNote = fail_count > 0 ? ` (${fail_count} failed)` : "";
@@ -765,7 +765,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* Update banner — shown when a newer version is available */}
+      {/* Update banner - shown when a newer version is available */}
       {newVersion && releaseUrl && !updateBannerDismissed && (
         <UpdateBanner
           version={newVersion}
@@ -819,7 +819,7 @@ export default function App() {
           {signalError && (
             <span className="signal-command-bar__error-text" role="alert">{signalError}</span>
           )}
-          {/* Screen-reader live region for delivery status — visually hidden */}
+          {/* Screen-reader live region for delivery status - visually hidden */}
           <span
             role="status"
             aria-live="polite"
@@ -925,6 +925,7 @@ export default function App() {
                       context={ctx}
                       dismissed={dismissed.has(session.id)}
                       onDismiss={() => setDismissed((prev) => new Set(prev).add(session.id))}
+                      onSessionFocus={(sessionId, cwd) => invoke("focus_session", { sessionId, cwd }).catch((err) => console.error("[humOS] ribbon focus failed:", err))}
                     />
                   ) : (uniqueCwdCount > 1 && daemonOnline === true && ctx === null && session.cwd ? (
                     <BrainRibbon context={null} dismissed={false} onDismiss={() => {}} />

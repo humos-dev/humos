@@ -5,6 +5,7 @@ interface BrainRibbonProps {
   context: RelatedContext | null;
   dismissed: boolean;
   onDismiss: () => void;
+  onSessionFocus?: (sessionId: string, cwd: string) => void;
 }
 
 function relativeTime(isoDate: string): string {
@@ -20,7 +21,7 @@ function relativeTime(isoDate: string): string {
   return `${Math.floor(days / 7)}w`;
 }
 
-export function BrainRibbon({ context, dismissed, onDismiss }: BrainRibbonProps) {
+export function BrainRibbon({ context, dismissed, onDismiss, onSessionFocus }: BrainRibbonProps) {
   const [expanded, setExpanded] = useState(false);
   const listRef = useRef<HTMLUListElement>(null);
 
@@ -62,8 +63,8 @@ export function BrainRibbon({ context, dismissed, onDismiss }: BrainRibbonProps)
     : `${totalCount} related sessions`;
 
   const subtitleText = isStale
-    ? "index rebuilding"
-    : "in this repo";
+    ? "updating..."
+    : "in this directory";
 
   function handleTriggerClick() {
     setExpanded((v) => !v);
@@ -133,7 +134,15 @@ export function BrainRibbon({ context, dismissed, onDismiss }: BrainRibbonProps)
           onKeyDown={handleListKeyDown}
         >
           {context.matches.slice(0, 5).map((m) => (
-            <li key={m.session_id} className="brain-ribbon__item" tabIndex={0}>
+            <li
+              key={m.session_id}
+              className="brain-ribbon__item"
+              tabIndex={0}
+              onClick={() => onSessionFocus?.(m.session_id, m.cwd)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") onSessionFocus?.(m.session_id, m.cwd);
+              }}
+            >
               <span className="brain-ribbon__item-snippet">{m.snippet}</span>
               <span className="brain-ribbon__item-meta">{relativeTime(m.modified_at)}</span>
             </li>

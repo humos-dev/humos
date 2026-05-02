@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.6.2] - 2026-05-02
+
+### Fixed
+- **Clicking a related session in the Project Brain ribbon now focuses that terminal.** Accordion list items were styled as interactive (hover, cursor, keyboard focus) but had no action wired. Each item now calls `focus_session` with the session ID and cwd from the daemon index. Keyboard users can navigate with ArrowUp/ArrowDown and press Enter to focus. Focus errors now log to console instead of being silently swallowed.
+- **Keyboard focus ring restored on ribbon accordion items.** `.brain-ribbon__item:focus-visible` previously set `outline: none`, suppressing all visible focus indication for keyboard users (WCAG 2.4.7 violation). The hover and focus-visible rules are now split: hover keeps its background change, focus-visible adds a `2px solid #3ecf8e` outline.
+- **"in this repo" corrected to "in this directory".** The ribbon subtitle grouped sessions by working directory (`cwd`), not by git repository. The label was factually wrong for monorepos and non-git directories.
+- **"index rebuilding" replaced with "updating..." in the stale state.** The previous copy exposed daemon implementation vocabulary to users at exactly the moment the system is degraded. "updating..." is accurate and user-facing.
+- **App.tsx restored after file was wiped to 0 bytes.**
+
+### Medium findings (not auto-fixed - require design decisions)
+- List-view path does not render BrainRibbon at all; the session-focus shortcut is unavailable in list mode
+- No in-ribbon success feedback after clicking a session item (SessionCard shows "Focused!" for 1.5s; ribbon is silent)
+- "and N more" overflow row is not interactive despite pointer cursor
+
 ## [0.6.1] - 2026-05-01
 
 ### Fixed
@@ -37,55 +51,55 @@
 - `humOS.txt` and other Claude Code session exports gitignored. The previously-untracked `humOS.txt` was relocated to `~/.gstack/projects/humos/`.
 - `RELEASING.md` documents the release flow end to end including how to test the banner before each release and how to roll back.
 
-## [0.5.6] — 2026-04-25
+## [0.5.6] - 2026-04-25
 
 ### Fixed
 - **Update banner "See what's new" link no longer 404s.** The link now uses the `url` field from `version.json` (controlled by the build script) instead of constructing a URL from the version number. This ensures the link always points to a real published release.
 
-## [0.5.5] — 2026-04-25
+## [0.5.5] - 2026-04-25
 
 ### Added
-- **In-app update notifications.** humOS now checks for new versions on startup. When a newer version is available, a coord blue strip appears between the header and the session grid: "↑ humOS X.Y.Z available · See what's new ↗ · ×". Dismissed per-version — each new release re-triggers the banner. Polling uses `humos.dev/version.json` (served by Vercel, no rate limits). Silent on network errors and offline.
-- **`docs/version.json`** — new static file served by Vercel at `humos.dev/version.json`. Updated automatically by `build-release.sh` on every release.
+- **In-app update notifications.** humOS now checks for new versions on startup. When a newer version is available, a coord blue strip appears between the header and the session grid: "↑ humOS X.Y.Z available · See what's new ↗ · ×". Dismissed per-version - each new release re-triggers the banner. Polling uses `humos.dev/version.json` (served by Vercel, no rate limits). Silent on network errors and offline.
+- **`docs/version.json`** - new static file served by Vercel at `humos.dev/version.json`. Updated automatically by `build-release.sh` on every release.
 
 ### Changed
 - **`build-release.sh`** now auto-writes `docs/version.json` after every build so the update endpoint is always in sync with the shipped version.
 
-## [0.5.4] — 2026-04-25
+## [0.5.4] - 2026-04-25
 
 ### Fixed
 - **Send button now available in list view.** List view Actions column has full parity with grid view: Focus, Send, and Summarize. Clicking Send in list view shows an inline input row below the session. Idle sessions show "Ended" in the Send slot, same behaviour as grid view.
 
-## [0.5.3] — 2026-04-25
+## [0.5.3] - 2026-04-25
 
 ### Fixed
 - **Ghost pipe edges cleared when rule is deleted.** Removing a pipe from the Pipes drawer now immediately clears its canvas line. Previously the edge remained on screen until the next resize or pipe fire. Deleting all rules now clears the canvas entirely.
 - **List view has full feature parity with grid view.** Focus and Summarize buttons are now available on every list row in an Actions column. Summary output appears as an inline detail row below the session row when Summarize is clicked.
 
-## [0.5.2] — 2026-04-25
+## [0.5.2] - 2026-04-25
 
 ### Fixed
-- **Dead session resume command shows full session ID.** The callout previously displayed a truncated 8-character ID. It now shows the complete `claude --resume <full-id>` command. Copy button pastes the full executable command directly — no extra steps needed.
+- **Dead session resume command shows full session ID.** The callout previously displayed a truncated 8-character ID. It now shows the complete `claude --resume <full-id>` command. Copy button pastes the full executable command directly - no extra steps needed.
 
-## [0.5.1] — 2026-04-25
+## [0.5.1] - 2026-04-25
 
 ### Added
-- **Persistent pipe edges.** Pipe connections are now always visible as blue lines between session cards — not just during the 500ms fire animation. Active connections (at least one session running) show as solid lines with arrowheads. Dormant connections (both sessions idle) show as dashed grey lines. Off-screen cards skip drawing cleanly.
+- **Persistent pipe edges.** Pipe connections are now always visible as blue lines between session cards - not just during the 500ms fire animation. Active connections (at least one session running) show as solid lines with arrowheads. Dormant connections (both sessions idle) show as dashed grey lines. Off-screen cards skip drawing cleanly.
 - **Pipe history footer.** Each session card shows the last pipe direction and relative time ("→ humos · 2 min ago" or "← medwrite · just now"). Updates live as pipes fire.
 - **Dead Session Indicator.** Idle sessions now show an "Ended" button instead of "Send." Clicking it reveals an inline callout with the resume command (`claude --resume <id>`) and a one-click copy button. Works in both grid and list view.
 - **Grid / List view toggle.** New segmented control in the header lets you switch between the card grid and a dense row-based list view. List view shows session name, status, last output, pipe connection, and timestamp in a compact table layout. Choice persists to localStorage.
 - **Design system (DESIGN.md).** Full design system committed: JetBrains Mono everywhere (loaded via `@fontsource/jetbrains-mono`), `--coord` (#3b82f6) for all coordination elements, `--amber` (#f59e0b) for waiting sessions, `--grid-line` (#0e0e0e) for the coordinate-space grid background.
 
 ### Changed
-- **Semantic color split.** Green (`--signal`) now means session health only. Blue (`--coord`) means coordination — pipe edges, pipe dots, signal bar accent, pipe fire animation, pipe badge in header. The two were previously conflated.
+- **Semantic color split.** Green (`--signal`) now means session health only. Blue (`--coord`) means coordination - pipe edges, pipe dots, signal bar accent, pipe fire animation, pipe badge in header. The two were previously conflated.
 - **Card radius and padding.** Session cards are now 5px radius (was 8px) and 12px padding (was 16px). Monitoring-tool density, not consumer-app cards.
 - **Coordinate grid background.** The main session area now renders a subtle 24px grid in the background, reinforcing the "sessions as nodes on a surface" mental model.
 - **Activity log.** Displays 8 entries (was 5) with a gentler opacity fade floor of 0.15.
 - **BrainRibbon bleed margins** updated to match new 12px card padding.
 
-## [0.5.0] — 2026-04-22
+## [0.5.0] - 2026-04-22
 
-### Added (Plan 2 Phase C — Daemon IPC + Project Brain Ribbon)
+### Added (Plan 2 Phase C - Daemon IPC + Project Brain Ribbon)
 
 ### Added
 - **`humos-client` crate.** Extracted `IpcClient` from `humos-mcp` into a shared workspace crate so any future consumer (app, CLI tools) can reuse the Unix socket client without duplicating code. 6 integration tests using in-process mock sockets cover ping, health, ENOENT, empty response, timeout, and JSON serialization.
@@ -102,9 +116,9 @@
 
 ### Architecture Notes
 - **Why raw JSON in `daemon_client.rs`:** Importing `humos-daemon` types in `src-tauri` creates a cycle (`humos` → `humos-daemon` → `humos_lib` → `humos`). Raw JSON string IPC breaks the cycle at the cost of stringly-typed request construction. Protocol is simple (5 message types) and tested in `humos-client` integration tests.
-- **Why app still owns session state:** The daemon protocol has no `ListSessions`. `SearchResult` carries `{id, cwd, project, snippet, score}` — no `status`, `tty`, or `tool_count`. The app's JSONL parser remains the source of truth for session status. Daemon is used for Health + RelatedContext only.
+- **Why app still owns session state:** The daemon protocol has no `ListSessions`. `SearchResult` carries `{id, cwd, project, snippet, score}` - no `status`, `tty`, or `tool_count`. The app's JSONL parser remains the source of truth for session status. Daemon is used for Health + RelatedContext only.
 
-## [0.5.0 cont.] — Plan 2 Phase B
+## [0.5.0 cont.] - Plan 2 Phase B
 
 ### Added
 - **`humos-mcp` crate.** New standalone binary that speaks MCP (Model Context Protocol) JSON-RPC 2.0 over stdio and bridges any MCP-capable AI agent (Claude Code, Codex CLI, Cursor) to the humOS daemon. Ships as Phase B (PR 2 of 4) of Plan 2.
@@ -113,7 +127,7 @@
 - **Error translation.** Daemon IPC errors propagate to MCP clients as `isError: true` tool results with the problem / cause / fix / docs_url body so the calling agent can surface actionable messages.
 - **README** with copy-paste JSON/TOML config for all three MCP clients.
 
-## [0.5.0 cont.] — Plan 2 Phase A
+## [0.5.0 cont.] - Plan 2 Phase A
 
 ### Added
 - **`humos-daemon` crate.** New standalone binary that owns the tantivy session index at `~/.humOS/index/` and serves it over a Unix socket at `~/.humOS/daemon.sock`. Ships as Phase A (PR 1 of 4) of Plan 2: the coordination runtime foundation. Phase B adds the MCP stdio server, Phase C migrates the app to consume the daemon and lights up the Project Brain ribbon, Phase D adds distribution.
@@ -153,26 +167,26 @@
 - **Signal command bar position**: reverted from absolute overlay to in-flow positioning. The bar now sits between the header and the card grid, pushing cards down 40px when open. This fixes the "input is hiding the first row of cards" bug introduced in v0.3.6. The UX audit flagged "layout shift jarring," but in practice the instant reflow is cleaner than the overlay hiding card content.
 
 ### Added (distribution scaffolding, not yet live)
-- `.github/workflows/release.yml` — `tauri-action` release workflow, triggered by `v*.*.*` tags, builds + signs + notarizes on `macos-14`, drafts a GitHub Release with the .zip attached. Requires 6 Apple secrets to be added to repo settings before the first release.
-- `docs/RELEASE.md` — release runbook covering prerequisites, the tag-and-push happy path, and three most common failure modes.
-- `README.md` — full rewrite. Positioning pivoted from "session monitor with a v2.0 north star" to "shipped Unix primitives for AI agent coordination." Competitor comparison, install paths, quickstart, and the 10x line now all in the hero.
-- `docs/index.html` — self-contained static landing page for humos.dev. Dark-themed HTML+CSS, zero JS, responsive at 640/1024 breakpoints.
-- `homebrew/Casks/humos.rb` — Homebrew cask formula targeting Apple Silicon `.zip` from GitHub Releases, with zap cleanup and livecheck.
-- `homebrew/README.md` — tap publishing runbook for the separate `homebrew-humos` repo Bolu will create before first release.
-- `LICENSE` — MIT, 2026.
+- `.github/workflows/release.yml` - `tauri-action` release workflow, triggered by `v*.*.*` tags, builds + signs + notarizes on `macos-14`, drafts a GitHub Release with the .zip attached. Requires 6 Apple secrets to be added to repo settings before the first release.
+- `docs/RELEASE.md` - release runbook covering prerequisites, the tag-and-push happy path, and three most common failure modes.
+- `README.md` - full rewrite. Positioning pivoted from "session monitor with a v2.0 north star" to "shipped Unix primitives for AI agent coordination." Competitor comparison, install paths, quickstart, and the 10x line now all in the hero.
+- `docs/index.html` - self-contained static landing page for humos.dev. Dark-themed HTML+CSS, zero JS, responsive at 640/1024 breakpoints.
+- `homebrew/Casks/humos.rb` - Homebrew cask formula targeting Apple Silicon `.zip` from GitHub Releases, with zap cleanup and livecheck.
+- `homebrew/README.md` - tap publishing runbook for the separate `homebrew-humos` repo Bolu will create before first release.
+- `LICENSE` - MIT, 2026.
 
 ## [0.3.6] - 2026-04-11
 
-### Fixed — signal() polish pass (from UX audit)
+### Fixed - signal() polish pass (from UX audit)
 - **Layout shift on open**: `.signal-command-bar` is now `position: absolute; top: 73px; z-index: 50` with a box-shadow instead of sitting in the document flow. Opening the bar no longer pushes the session grid down 40px. Computer vision verified: cards stay put when the bar opens.
 - **Countdown bar visibility**: `.signal-command-bar__toast::after` raised from 1px/0.6 opacity → 2px/0.8 opacity so the 2s undo countdown is actually noticeable.
 - **Undo cancel hit target**: `.signal-command-bar__cancel` gained 4x8 padding + hover background so it's clickable as a button, not a thin underlined word.
-- **Counter threshold + gradient**: the char counter now appears at 350+ chars in the subtle `--text-2` color and flips to red (`--warn` modifier) at 460+. Previously it only appeared at 409+ in red — a cliff with no warmup.
+- **Counter threshold + gradient**: the char counter now appears at 350+ chars in the subtle `--text-2` color and flips to red (`--warn` modifier) at 460+. Previously it only appeared at 409+ in red - a cliff with no warmup.
 - **Screen-reader live region**: added a visually-hidden `role="status" aria-live="polite"` span inside the command bar that announces "Queued for N sessions, undo available for two seconds" on pending and error text on failure. The error banner itself also gained `role="alert"`.
 
 ## [0.3.5] - 2026-04-11
 
-### Fixed — signal() QA pass
+### Fixed - signal() QA pass
 - **UTF-8 preview panic**: `signal_sessions` log preview previously sliced bytes (`&message[..message.len().min(60)]`) which panics on multi-byte UTF-8 char boundaries (emoji, non-ASCII). Now uses `message.chars().take(60).collect()`.
 - **Server-side message validation**: `signal_sessions` now rejects empty/whitespace-only messages, enforces `SIGNAL_MAX_CHARS` (512) server-side in characters (not bytes), and replaces control characters (newlines, tabs) with spaces so broadcasts can't fragment the Claude CLI prompt mid-draft.
 - **Empty-targets error**: `signal_sessions` now returns `Err("No active sessions.")` instead of silently emitting an empty broadcast when the non-idle session set has gone empty between button click and command fire.
@@ -183,9 +197,9 @@
 - **Partial-failure surfacing**: when some sessions fail, the failed project names are now listed in the error banner (up to 5) and the activity log (up to 3). Previously `fail_ids` round-tripped to the UI but were silently discarded.
 - **Escape key decoupling**: Escape no longer simultaneously closes the Pipes drawer AND cancels a pending signal. The handler now dispatches to whichever modal is open, with Signal taking priority.
 - **Pipes/Signal mutual exclusion**: opening the Signal command bar now closes the Pipes drawer (and vice versa). Previously both could be open simultaneously with stacked z-index and weird focus behavior.
-- **1-session plural bug**: command bar placeholder was hardcoded `"all active sessions"` regardless of count. Now reads `Broadcast to ${N} session${s} — Enter to send, Esc to cancel`. Tooltip wording also clarified to `"Needs a running or waiting session"` when disabled.
+- **1-session plural bug**: command bar placeholder was hardcoded `"all active sessions"` regardless of count. Now reads `Broadcast to ${N} session${s} - Enter to send, Esc to cancel`. Tooltip wording also clarified to `"Needs a running or waiting session"` when disabled.
 - **Accessibility**: input gained `aria-label="Signal broadcast message"`; disabled Signal button gained `aria-label` + grayscale filter so screen readers and sighted keyboard users both get an unambiguous state.
-- **Focus on re-open**: added `useEffect` on `signalOpen` that calls `signalInputRef.current?.focus()` — `autoFocus` only fires once on mount, so toggling the bar open a second time left the caret unfocused.
+- **Focus on re-open**: added `useEffect` on `signalOpen` that calls `signalInputRef.current?.focus()` - `autoFocus` only fires once on mount, so toggling the bar open a second time left the caret unfocused.
 - **Log format**: activity log entry switched from `⌁ signal → N sessions: [preview]` to `⌁ N/M · [preview]` and suppresses the entry entirely when `success_count === 0` (a failure-only entry is emitted from `handleSignalSubmit` instead).
 
 ## [0.3.4] - 2026-04-11
@@ -200,7 +214,7 @@
 ## [0.3.3] - 2026-04-11
 
 ### Fixed
-- **pipe display fix**: `PipeConfig` no longer manages its own `rules` state — rules are lifted to `App.tsx` and passed as props. Eliminated async setState race that caused persisted rules to silently disappear from the Pipes drawer on open.
+- **pipe display fix**: `PipeConfig` no longer manages its own `rules` state - rules are lifted to `App.tsx` and passed as props. Eliminated async setState race that caused persisted rules to silently disappear from the Pipes drawer on open.
 - **pipe drawer load timing**: `pipeOpen` useEffect now calls `loadPipeRules()` unconditionally (open and close), ensuring the drawer always shows fresh data from backend.
 - **debug logging removed**: `eprintln!` debug statements removed from `pipe_rules_path`, `load_pipe_rules`, and `list_pipe_rules`. Load errors now routed through `log::warn!`/`log::error!`.
 - **load error resilience**: `load_pipe_rules` gracefully handles missing file (no error) and malformed JSON (logged error) without panic.
@@ -208,9 +222,9 @@
 ## [0.3.2] - 2026-04-11
 
 ### Fixed
-- **pipe CWD fallback**: `PipeRule` now stores `from_cwd` and `to_cwd` at creation time. `evaluate` falls back to CWD matching when session IDs change (IDs are JSONL filenames — they change on every Claude CLI restart). Pipes now survive session restarts without the user needing to re-create rules.
+- **pipe CWD fallback**: `PipeRule` now stores `from_cwd` and `to_cwd` at creation time. `evaluate` falls back to CWD matching when session IDs change (IDs are JSONL filenames - they change on every Claude CLI restart). Pipes now survive session restarts without the user needing to re-create rules.
 - **pipe snapshot stability**: Snapshots now keyed by CWD (stable) instead of session ID (unstable), so edge detection (running→idle, last_output change) is preserved across restarts.
-- **pipe periodic rescan gap**: `start_periodic_rescan` now calls `evaluate_pipes` after each rescan batch. Previously, session state updated but pipe rules were never evaluated in the rescan path — OnIdle transitions that the file watcher missed were silently dropped.
+- **pipe periodic rescan gap**: `start_periodic_rescan` now calls `evaluate_pipes` after each rescan batch. Previously, session state updated but pipe rules were never evaluated in the rescan path - OnIdle transitions that the file watcher missed were silently dropped.
 - **pipe rule persistence**: Rules now saved to `~/.humOS/pipe-rules.json` on add/remove and loaded on startup. Rules no longer lost when the app restarts.
 - **`add_pipe_rule` command**: Now accepts optional `from_cwd`/`to_cwd` parameters; resolves them from the live session map when not provided.
 - **Frontend `PipeRule` interface**: Added `from_cwd` and `to_cwd` fields to match updated backend struct.
@@ -222,7 +236,7 @@
 - **pipe `pipe-fired` event**: now emitted AFTER `inject_message` completes, with `success: bool` and `error: Option<String>` fields. UI no longer shows the pipe animation for injections that silently failed
 - **signal button tooltip**: "No running sessions" → "No active sessions" (waiting sessions also enable Signal)
 - **signal placeholder**: "Broadcast to all running sessions" → "Broadcast to all active sessions"
-- **signal undo toast**: "Sending" → "Queued", "Cancel" → "Undo" (more accurate — action hasn't fired yet)
+- **signal undo toast**: "Sending" → "Queued", "Cancel" → "Undo" (more accurate - action hasn't fired yet)
 - **signalUndoRef**: nulled immediately when the 2-second window fires, preventing stale ref on subsequent signals
 - **signal command bar**: placeholder contrast raised (#444 → #666), left-border accent added, error state gets red background tint, countdown animation on undo toast
 
@@ -231,9 +245,9 @@
 ### Added
 - **signal()**: broadcast a message to all running+waiting sessions simultaneously with one click
   - `signal_sessions` Tauri command (Rust): iterates all non-idle sessions, calls `inject_message` for each, emits `signal-fired` event with per-session success/fail split
-  - `⌁ Signal` button in header — disabled (greyed, tooltip) when 0 non-idle sessions
+  - `⌁ Signal` button in header - disabled (greyed, tooltip) when 0 non-idle sessions
   - Signal command bar: 40px overlay below header, auto-focused input, 512-char limit with counter at 80% capacity
-  - 2-second undo window: toast shows "Sending to N sessions — Cancel" before inject fires
+  - 2-second undo window: toast shows "Sending to N sessions - Cancel" before inject fires
   - All-fail error state: inline red error in command bar, input stays open
   - Session card flash animations: green ripple on successful delivery, red glow on failure (distinct timing from pipe animation)
   - Activity log entry: `⌁ signal → N sessions: [preview]` with fail count if partial
@@ -242,23 +256,23 @@
 
 ### Added
 - `PLAN-signal.md`: fully reviewed plan for `signal()` (Primitive 2). Passed 4-phase autoplan review (CEO, Design, Eng, DX). 19 decisions logged.
-- TODOS.md: 6 new deferred items — signal() v2 selective broadcast, signal vocabulary, programmatic API, file-based signaling, parallel injection (N>15), and humOS runtime model spec
+- TODOS.md: 6 new deferred items - signal() v2 selective broadcast, signal vocabulary, programmatic API, file-based signaling, parallel injection (N>15), and humOS runtime model spec
 
 ## [0.2.0] - 2026-04-11
 
 ### Added
-- **Pipe system**: connect any two sessions — when session A goes idle or writes a matching file, inject a message into session B's terminal automatically
+- **Pipe system**: connect any two sessions - when session A goes idle or writes a matching file, inject a message into session B's terminal automatically
 - Pipe rules persist in app state and survive across sessions; add/remove via the Pipes drawer
 - Canvas animation when a pipe fires: dashed green line traces from source to target card, target flashes with border highlight
 - Activity log bar at bottom of screen: last 5 pipe events with timestamps, persisted across restarts via localStorage
 - `start_periodic_rescan` background thread: rescans recently-modified files every 5 seconds for sessions the file watcher misses (handles large JSONL files, 60s lookback window)
-- **Multi-agent platform vision**: documented humOS Agent SDK spec in TODOS.md — designed to support Claude Code, Cursor, Copilot, Aider, Codex CLI, Cline, Devin, and custom agents via `~/.humOS/sessions/<agent>/<id>.jsonl`
+- **Multi-agent platform vision**: documented humOS Agent SDK spec in TODOS.md - designed to support Claude Code, Cursor, Copilot, Aider, Codex CLI, Cline, Devin, and custom agents via `~/.humOS/sessions/<agent>/<id>.jsonl`
 
 ### Changed
 - Renamed **HumOS** → **humOS** everywhere (dock, title bar, product name, Cargo lib, README)
 - Poll interval reduced from 30s to 5s for faster session freshness
-- `inject_message` now uses pbpaste approach — writes message to clipboard, then runs `pbpaste` in the matching Terminal tab. Eliminates shell injection risk of embedding content inside `do script "..."` AppleScript
-- `compute_status` restores mtime gate — sessions whose last role was "assistant" but haven't been modified in >5 minutes show as `idle` instead of `running` forever
+- `inject_message` now uses pbpaste approach - writes message to clipboard, then runs `pbpaste` in the matching Terminal tab. Eliminates shell injection risk of embedding content inside `do script "..."` AppleScript
+- `compute_status` restores mtime gate - sessions whose last role was "assistant" but haven't been modified in >5 minutes show as `idle` instead of `running` forever
 - Icon regenerated via `tauri icon` pipeline: pure black background, three `#5fffb8` waveform bars, no border frame
 - Session cards show pipe source/target indicators (subtle 5px green dot)
 - `logSeq` moved from module-level mutable to `useRef` inside App component
@@ -268,14 +282,14 @@
 - Pipe `OnFileWrite` trigger no longer false-fires on startup (treats first tick as no-change)
 - `snapshots` map in PipeManager now prunes stale entries when sessions are removed, preventing unbounded memory growth
 - `last_segment` in AppleScript tab matching now properly escaped through `escape_applescript()`
-- `sessions.lock().unwrap()` replaced with `unwrap_or_else(|e| e.into_inner())` across all call sites — recovers gracefully if any thread panics while holding the mutex
+- `sessions.lock().unwrap()` replaced with `unwrap_or_else(|e| e.into_inner())` across all call sites - recovers gracefully if any thread panics while holding the mutex
 - `animatePipeLine` requestAnimationFrame loop now correctly cancelled on component unmount
 
 ## [0.1.0] - 2026-04-11
 
 ### Added
 - Native macOS Tauri v2 app monitoring all active Claude CLI sessions in real-time
-- File watcher on `~/.claude/projects` with 200ms debounce — sessions update live
+- File watcher on `~/.claude/projects` with 200ms debounce - sessions update live
 - Session cards: project name, cwd, status dot (running/waiting/idle), tool count, last output
 - Status detection: `running` when Claude is actively calling tools, `waiting` when expecting user input, `idle` otherwise
 - Sort order: running → waiting → idle, then by most recently modified
@@ -283,6 +297,6 @@
 - **Focus** button: AppleScript brings matching Terminal window/tab to front (matches auto-generated tab name and cwd)
 - **Send** button: inject message into terminal via clipboard + keystroke simulation
 - **Summarize** button: reads session JSONL, calls `claude -p` with `--no-session-persistence`, returns 2-sentence plain English summary
-- Summary renders as absolute overlay on card — does not shift grid layout
+- Summary renders as absolute overlay on card - does not shift grid layout
 - Animated loading dots in Summarize button while generating
 - JSONL parser correctly reads real Claude CLI session format (cwd/sessionId on every line, not a special init event)
