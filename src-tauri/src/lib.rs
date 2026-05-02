@@ -696,7 +696,7 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .manage(sessions.clone())
         .manage(pipe_manager.clone())
-        .manage(Arc::new(AtomicBool::new(false)))
+        .manage(updater::UpdateLock(Arc::new(AtomicBool::new(false))))
         .setup(move |app| {
             let handle = app.handle().clone();
             start_session_poll(

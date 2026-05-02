@@ -6,6 +6,10 @@ use tauri::{AppHandle, Emitter, State};
 
 const GITHUB_API: &str = "https://api.github.com/repos/humos-dev/humos/releases/latest";
 const INSTALL_TARGET: &str = "/Applications/humOS.app";
+/// Newtype wrapper so Tauri's type-keyed state can distinguish this
+/// flag from any other Arc<AtomicBool> that may be added later.
+pub struct UpdateLock(pub Arc<AtomicBool>);
+
 const VALID_URL_PREFIX: &str = "https://github.com/humos-dev/humos/releases/download/";
 
 #[derive(serde::Serialize, Clone)]
@@ -244,12 +248,12 @@ async fn run_update(app: AppHandle, updating: Arc<AtomicBool>) {
 #[tauri::command]
 pub async fn start_self_update(
     app: AppHandle,
-    updating: State<'_, Arc<AtomicBool>>,
+    updating: State<'_, UpdateLock>,
 ) -> Result<(), String> {
-    if updating.swap(true, Ordering::SeqCst) {
+    if updating.0.swap(true, Ordering::SeqCst) {
         return Ok(());
     }
-    let updating_clone = Arc::clone(&updating);
+    let updating_clone = Arc::clone(&updating.0);
     tokio::spawn(async move {
         run_update(app, updating_clone).await;
     });

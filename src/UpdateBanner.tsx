@@ -111,7 +111,7 @@ export function UpdateBanner({ version, releaseUrl, onDismiss }: Props) {
             <span>humOS {version} available</span>
           </div>
           <div className="update-banner__cmd">
-            <span className="update-banner__stage">checking...</span>
+            <span className="update-banner__stage">CHECKING</span>
           </div>
           <div className="update-banner__right">
             <button
@@ -122,6 +122,13 @@ export function UpdateBanner({ version, releaseUrl, onDismiss }: Props) {
               &#xD7;
             </button>
           </div>
+          <div
+            className="update-banner__progress update-banner__progress--indeterminate"
+            role="progressbar"
+            aria-label="Checking for update"
+            aria-valuemin={0}
+            aria-valuemax={100}
+          />
         </>
       )}
 
@@ -137,7 +144,7 @@ export function UpdateBanner({ version, releaseUrl, onDismiss }: Props) {
               className="update-banner__stage"
               style={{ color: "var(--coord)", fontVariantNumeric: "tabular-nums" }}
             >
-              {(updateStage as { stage: "downloading"; progress: number }).progress}%
+              DOWNLOADING&nbsp;&nbsp;{(updateStage as { stage: "downloading"; progress: number }).progress}%
             </span>
           </div>
           <div className="update-banner__right" />
@@ -160,7 +167,7 @@ export function UpdateBanner({ version, releaseUrl, onDismiss }: Props) {
             <span>humOS {version} available</span>
           </div>
           <div className="update-banner__cmd">
-            <span className="update-banner__stage">installing...</span>
+            <span className="update-banner__stage">INSTALLING</span>
           </div>
           <div className="update-banner__right" />
           <div
