@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.6.4] - 2026-05-02
+
+### How to update
+
+```bash
+curl -fsSL https://humos.dev/install.sh | sh
+```
+
+Or download the ZIP, extract it, then run:
+
+```bash
+xattr -cr ~/Downloads/humOS.app && open ~/Downloads/humOS.app
+```
+
+> macOS says "damaged" or "file can't be found"? That is Gatekeeper, not actual damage. The `xattr -cr` command above clears it.
+
+### Added
+- **Update banner now shows the install command inline.** The banner that appears when a new version is available now includes the one-liner install command with a copy button. Users can update without leaving the app or visiting GitHub: copy the command, paste it in Terminal, done.
+
 ## [0.6.3] - 2026-05-02
 
 ### How to update
