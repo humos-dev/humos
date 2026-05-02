@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.6.6] - 2026-05-02
+
+### How to update
+
+```bash
+curl -fsSL https://humos.dev/install.sh | sh
+```
+
+Or download the ZIP, extract it, then run:
+
+```bash
+xattr -cr ~/Downloads/humOS.app && open ~/Downloads/humOS.app
+```
+
+> macOS says "damaged", "file can't be found", or "not responding"? All three are Gatekeeper blocking an unsigned app. Run: `sudo spctl --add /Applications/humOS.app` or right-click the app in Finder and choose Open.
+
+### Fixed
+- **Project Brain ribbon now shows the real session count.** Previously `total_count` was computed from the already-truncated result slice, so it was always capped at the display limit (5). A repo with 51 sessions would show "5 related sessions." Now the daemon fetches up to 400 candidates before truncating, and reports the true count before truncation. Count in the ribbon header is now accurate.
+- **7-day recency filter on ribbon sessions.** Sessions not modified in the past 7 days are excluded from the ribbon. Keeps context relevant and avoids stale sessions from months-old work cluttering the display.
+
+### Added
+- **`scripts/install-daemon.sh`** - convenience script to install the humOS daemon as a macOS LaunchAgent. Runs once after `cargo build --release -p humos-daemon`. Handles first install and re-installs (bootout before overwrite). Checks binary exists and is executable before writing the plist.
+
 ## [0.6.5] - 2026-05-02
 
 ### How to update

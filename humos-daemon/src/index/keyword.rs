@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use anyhow::{Context, Result};
-use chrono::{DateTime, TimeZone, Utc};
+use chrono::{DateTime, Duration, TimeZone, Utc};
 use tantivy::collector::TopDocs;
 use tantivy::query::QueryParser;
 use tantivy::schema::{Field, Value};
@@ -183,27 +183,38 @@ impl SessionIndexer for KeywordIndexer {
         Ok(out)
     }
 
-    fn search_by_cwd(&self, cwd: &str, limit: usize) -> Result<Vec<SearchResult>> {
+    fn search_by_cwd(&self, cwd: &str, limit: usize) -> Result<(Vec<SearchResult>, u64)> {
         if cwd.trim().is_empty() {
-            return Ok(Vec::new());
+            return Ok((Vec::new(), 0));
         }
+        // Fetch well beyond limit to approximate total matches. The returned
+        // total_count is capped at fetch_limit: if the index contains more
+        // matching documents than fetch_limit, the count will be understated.
+        let fetch_limit = (limit * 20).max(200);
+        let cutoff = Utc::now() - Duration::days(7);
+
         let searcher = self.reader.searcher();
         let cwd_field = self.field("cwd")?;
         let parser = QueryParser::for_index(&self.index, vec![cwd_field]);
         let parsed = parser
             .parse_query(&format!("\"{}\"", cwd.replace('\"', "")))
             .with_context(|| format!("parse cwd query {cwd:?}"))?;
-        let top = searcher.search(&parsed, &TopDocs::with_limit(limit))?;
+        let top = searcher.search(&parsed, &TopDocs::with_limit(fetch_limit))?;
         let mut out = Vec::with_capacity(top.len());
         for (score, addr) in top {
             let doc: TantivyDocument = searcher.doc(addr)?;
             let result = self.result_from_doc(&doc, score)?;
             // Cwd parser is TEXT so partial tokens match. Confirm exact prefix match.
-            if result.cwd == cwd || result.cwd.starts_with(cwd) {
+            // Also filter to sessions modified within the last 7 days.
+            if (result.cwd == cwd || result.cwd.starts_with(cwd)) && result.modified_at >= cutoff {
                 out.push(result);
             }
         }
-        Ok(out)
+        // Approximate total: exact only when all matching documents fit within
+        // fetch_limit. Callers should treat this as a lower-bound estimate.
+        let total_count = out.len() as u64;
+        out.truncate(limit);
+        Ok((out, total_count))
     }
 
     fn total_count(&self) -> Result<u64> {
@@ -266,6 +277,18 @@ mod tests {
         }
     }
 
+    fn sample_with_date(id: &str, cwd: &str, content: &str, modified_at: chrono::DateTime<Utc>) -> IndexableSession {
+        IndexableSession {
+            id: id.into(),
+            provider: "claude".into(),
+            cwd: cwd.into(),
+            project: cwd.split('/').last().unwrap_or("").into(),
+            content: content.into(),
+            started_at: modified_at,
+            modified_at,
+        }
+    }
+
     #[test]
     fn index_and_search_content() {
         let dir = TempDir::new().unwrap();
@@ -284,8 +307,28 @@ mod tests {
         idx.index(&sample("a", "/Users/bolu/humos", "alpha")).unwrap();
         idx.index(&sample("b", "/Users/bolu/humos", "beta")).unwrap();
         idx.index(&sample("c", "/Users/bolu/other", "gamma")).unwrap();
-        let results = idx.search_by_cwd("/Users/bolu/humos", 10).unwrap();
+        let (results, total) = idx.search_by_cwd("/Users/bolu/humos", 10).unwrap();
         assert_eq!(results.len(), 2);
+        assert_eq!(total, 2);
+    }
+
+    #[test]
+    fn search_by_cwd_excludes_stale_sessions() {
+        let dir = TempDir::new().unwrap();
+        let idx = KeywordIndexer::open(dir.path()).unwrap();
+        let recent = sample_with_date("recent", "/Users/bolu/proj", "recent work", Utc::now());
+        let stale = sample_with_date(
+            "stale",
+            "/Users/bolu/proj",
+            "old work",
+            Utc::now() - Duration::days(8),
+        );
+        idx.index(&recent).unwrap();
+        idx.index(&stale).unwrap();
+        let (results, total) = idx.search_by_cwd("/Users/bolu/proj", 10).unwrap();
+        assert_eq!(results.len(), 1, "only the recent session should be returned");
+        assert_eq!(total, 1, "total should reflect only recent sessions");
+        assert_eq!(results[0].id, "recent");
     }
 
     #[test]

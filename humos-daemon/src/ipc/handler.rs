@@ -83,8 +83,7 @@ impl Handler {
 
     fn related_context(&self, cwd: String, limit: usize) -> Response {
         match self.indexer.search_by_cwd(&cwd, limit) {
-            Ok(matches) => {
-                let total_count = matches.len() as u64;
+            Ok((matches, total_count)) => {
                 let recent_count = recent_count(&matches);
                 Response::RelatedContext {
                     cwd,
@@ -108,8 +107,7 @@ impl Handler {
         let mut contexts: HashMap<String, BulkContextEntry> = HashMap::new();
         for cwd in cwds {
             match self.indexer.search_by_cwd(&cwd, limit) {
-                Ok(matches) => {
-                    let total_count = matches.len() as u64;
+                Ok((matches, total_count)) => {
                     let recent_count = recent_count(&matches);
                     contexts.insert(
                         cwd,

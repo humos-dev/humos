@@ -35,7 +35,7 @@ pub trait SessionIndexer: Send + Sync {
     fn index(&self, session: &IndexableSession) -> anyhow::Result<()>;
     fn delete(&self, session_id: &str) -> anyhow::Result<()>;
     fn search(&self, query: &str, limit: usize) -> anyhow::Result<Vec<SearchResult>>;
-    fn search_by_cwd(&self, cwd: &str, limit: usize) -> anyhow::Result<Vec<SearchResult>>;
+    fn search_by_cwd(&self, cwd: &str, limit: usize) -> anyhow::Result<(Vec<SearchResult>, u64)>;
     fn total_count(&self) -> anyhow::Result<u64>;
     /// Force a commit (flush pending writes to disk).
     fn commit(&self) -> anyhow::Result<()>;
