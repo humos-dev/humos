@@ -434,6 +434,7 @@ body {
   border-bottom: 1px solid rgba(59, 130, 246, 0.20);
   border-left: 2px solid var(--coord);
   flex-shrink: 0;
+  position: relative;
 }
 .update-banner__left {
   display: flex;
@@ -506,6 +507,67 @@ body {
   transition: color 0.1s;
 }
 .update-banner__dismiss:hover { color: var(--text-2); }
+
+/* Progress bar (self-update states) */
+.update-banner__progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: var(--coord);
+  border-radius: 0;
+  pointer-events: none;
+  transition: width 0.3s linear;
+}
+.update-banner__progress--indeterminate {
+  width: 40%;
+  transition: none;
+  animation: updaterScan 1.2s linear infinite;
+}
+@keyframes updaterScan {
+  0%   { left: -40%; }
+  100% { left: 100%; }
+}
+
+/* Stage label in __cmd during update states */
+.update-banner__stage {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-3);
+  letter-spacing: 0.02em;
+}
+
+/* Restart button */
+.update-banner__restart {
+  font-size: 9px;
+  font-family: var(--font);
+  color: var(--coord);
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 3px;
+  padding: 1px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.1s;
+}
+.update-banner__restart:hover { opacity: 0.8; }
+
+/* Update trigger button */
+.update-banner__trigger {
+  font-size: 9px;
+  font-family: var(--font);
+  color: var(--coord);
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 3px;
+  padding: 1px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.1s;
+  margin-left: 4px;
+}
+.update-banner__trigger:hover { opacity: 0.8; }
+.update-banner__trigger:disabled { opacity: 0.4; cursor: default; }
 
 .session-card__actions {
   display: flex;

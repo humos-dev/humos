@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.6.5] - 2026-05-02
+
+### How to update
+
+```bash
+curl -fsSL https://humos.dev/install.sh | sh
+```
+
+Or download the ZIP, extract it, then run:
+
+```bash
+xattr -cr ~/Downloads/humOS.app && open ~/Downloads/humOS.app
+```
+
+> macOS says "damaged" or "file can't be found"? That is Gatekeeper, not actual damage. The `xattr -cr` command above clears it.
+
+### Added
+- **Background self-update.** The update banner now has an "Update" button. Click it and humOS downloads the latest release, clears Gatekeeper quarantine, and installs itself - no terminal needed. A real percentage progress bar tracks the download (byte-level, not fake). A pulsing bar covers the install step. When done, a "Restart humOS" button appears. The app opens the new version and exits cleanly.
+- **Privilege escalation via macOS auth dialog.** If `/Applications` is not writable (standard account), humOS shows a native macOS password prompt instead of silently failing with a `sudo` call that has no tty.
+- **Install guard for debug builds.** If humOS is running from outside `/Applications` (e.g. a dev binary), the Restart button is replaced with "Installed. Restart humOS manually." to avoid opening a second instance.
+
+### Fixed
+- **`install.sh` sudo replaced with osascript admin dialog.** The previous `sudo mv` silently hung when called from a GUI context (no tty for password prompt). All installs now use `osascript do shell script ... with administrator privileges`, which works from both terminal and GUI apps.
+
 ## [0.6.4] - 2026-05-02
 
 ### How to update

@@ -3,11 +3,12 @@ mod daemon_client;
 mod parser;
 pub mod pipe;
 pub mod providers;
+mod updater;
 
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -33,7 +34,7 @@ struct SignalResult {
     error: Option<String>,
 }
 
-/// Emitted after signal_sessions runs — carries per-session delivery status.
+/// Emitted after signal_sessions runs - carries per-session delivery status.
 #[derive(Debug, Clone, Serialize)]
 struct SignalFiredEvent {
     message: String,
@@ -53,7 +54,7 @@ const MAX_SESSION_AGE: Duration = Duration::from_secs(7 * 24 * 60 * 60); // 7 da
 const POLL_INTERVAL: Duration = Duration::from_secs(5);
 
 /// Maximum message length accepted by `signal_sessions`, in characters.
-/// Mirrors the UI limit — enforced server-side so any bypassing caller can't
+/// Mirrors the UI limit - enforced server-side so any bypassing caller can't
 /// slip through with a multi-megabyte payload.
 const SIGNAL_MAX_CHARS: usize = 512;
 
@@ -61,7 +62,7 @@ const SIGNAL_MAX_CHARS: usize = 512;
 ///
 /// Iterates all sessions where `status != "idle"` (running + waiting), calls
 /// `inject_message` for each, then emits a `signal-fired` event so the UI can
-/// animate and log the result.  Partial failure is handled gracefully — results
+/// animate and log the result.  Partial failure is handled gracefully - results
 /// for each session are returned regardless of whether injection succeeded.
 ///
 /// Message content is validated server-side: trimmed, non-empty, capped at
@@ -162,7 +163,7 @@ async fn signal_sessions(
         log::error!("emit signal-fired error: {}", e);
     }
 
-    // Preview: char-based truncation (not byte slice) — avoids panic on
+    // Preview: char-based truncation (not byte slice) - avoids panic on
     // multi-byte UTF-8 boundaries (emoji, non-ASCII).
     let preview: String = sanitized.chars().take(60).collect();
     log::info!(
@@ -251,7 +252,7 @@ fn focus_session(
 ///   2. if that fails, use the explicit cwd param the caller passed
 ///   3. if both are empty, return an error
 ///
-/// This mirrors the pipe() CWD fallback fix from v0.3.2 — the Send button
+/// This mirrors the pipe() CWD fallback fix from v0.3.2 - the Send button
 /// and every other single-session inject path now survives session restarts.
 #[tauri::command]
 fn inject_message(
@@ -291,7 +292,7 @@ fn inject_message(
 ///
 /// `from_cwd` and `to_cwd` are captured at rule-creation time so that pipe
 /// evaluation can fall back to CWD matching when session IDs change (which
-/// happens every time Claude CLI restarts — IDs are JSONL filenames).
+/// happens every time Claude CLI restarts - IDs are JSONL filenames).
 #[tauri::command]
 fn add_pipe_rule(
     from_session_id: String,
@@ -433,7 +434,7 @@ async fn summarize_session(session_id: String) -> Result<String, String> {
     }
 
     let prompt = format!(
-        "Here is the recent activity from a Claude CLI session. Summarize in 2 plain English sentences what this session is working on right now. Be specific and concrete — name the actual task, files, or goal. No preamble, no bullet points, just 2 sentences.\n\n---\n{}\n---",
+        "Here is the recent activity from a Claude CLI session. Summarize in 2 plain English sentences what this session is working on right now. Be specific and concrete - name the actual task, files, or goal. No preamble, no bullet points, just 2 sentences.\n\n---\n{}\n---",
         context
     );
 
@@ -467,7 +468,7 @@ fn find_jsonl(base: &PathBuf, session_id: &str) -> Option<PathBuf> {
     None
 }
 
-/// Find the `claude` CLI binary — checks common install locations.
+/// Find the `claude` CLI binary - checks common install locations.
 fn which_claude() -> String {
     let mut candidates: Vec<String> = Vec::new();
     if let Some(home) = dirs::home_dir() {
@@ -695,6 +696,7 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .manage(sessions.clone())
         .manage(pipe_manager.clone())
+        .manage(Arc::new(AtomicBool::new(false)))
         .setup(move |app| {
             let handle = app.handle().clone();
             start_session_poll(
@@ -715,6 +717,8 @@ pub fn run() {
             list_pipe_rules,
             check_daemon_health,
             get_related_context,
+            updater::start_self_update,
+            updater::restart_app,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

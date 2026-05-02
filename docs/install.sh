@@ -57,8 +57,10 @@ echo "Installing to /Applications..."
 if [ -w "/Applications" ]; then
   mv "$APP" /Applications/humOS.app
 else
-  echo "Need admin access to install to /Applications (you may be prompted for your password)."
-  sudo mv "$APP" /Applications/humOS.app
+  osascript -e "do shell script \"mv '$(printf "%q" "$APP")' '/Applications/humOS.app'\" with administrator privileges" 2>/dev/null || {
+    echo "Authentication cancelled or failed. Use the manual install." >&2
+    exit 1
+  }
 fi
 
 echo ""
