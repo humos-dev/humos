@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.3] - 2026-05-02
+
+### Fixed
+- **Provider badge color distinction restored.** The v0.5.1 ribbon demotion logic demoted ALL provider badges to gray whenever a ribbon was visible. Since every card with multiple sessions now has a ribbon, opencode (orange) and Codex (purple) badges were always shown gray - indistinguishable from Claude. Fixed: only Claude badges are demoted (avoiding the double-green ribbon + badge collision). Opencode and Codex badges always show their full colors.
+- **"The file can't be found" on launch is the same Gatekeeper quarantine issue as "damaged".** macOS 26 Tahoe shows this alternate dialog for unsigned apps. Fix: `xattr -cr ~/Downloads/humOS.app` then open.
+
 ## [0.6.2] - 2026-05-02
 
 ### Fixed

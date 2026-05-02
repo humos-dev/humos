@@ -268,7 +268,7 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
       ? (isSource
         ? `→ ${pipeHistory.fromProject} · ${relativeTime(pipeHistory.ts)}`
         : `← ${pipeHistory.fromProject} · ${relativeTime(pipeHistory.ts)}`)
-      : (isSource || isTarget ? "connected" : "—");
+      : (isSource || isTarget ? "connected" : "-");
     return (
       <>
         <div
@@ -307,7 +307,7 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
             <button
               style={{ ...styles.btn, padding: "3px 8px", fontSize: "9px", marginTop: "3px", ...(sendOpen && !isIdle ? styles.btnPrimary : {}), ...(isIdle ? { opacity: 0.5 } : {}) }}
               onClick={() => setSendOpen((v) => !v)}
-              aria-label={isIdle ? `Session ended — see resume command` : `Send message to ${session.project}`}
+              aria-label={isIdle ? `Session ended - see resume command` : `Send message to ${session.project}`}
             >{isIdle ? "Ended" : sendOpen ? "Cancel" : "Send"}</button>
             <button
               style={{ ...styles.btn, padding: "3px 8px", fontSize: "9px", marginTop: "3px", opacity: summarizing ? 0.5 : 1 }}
@@ -356,7 +356,7 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
 
   return (
     <div className={cardClass} data-session-id={session.id}>
-      {/* Project Brain ribbon — ambient strip at card top (spec v2) */}
+      {/* Project Brain ribbon - ambient strip at card top (spec v2) */}
       {ribbon}
 
       {/* Header */}
@@ -366,10 +366,12 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
             <div style={styles.projectName}>{session.project || session.id}</div>
             {(() => {
               const badge = PROVIDER_BADGE[session.provider] ?? PROVIDER_FALLBACK;
-              // Demote to neutral when ribbon present (no double-green anchor)
-              const badgeColor = hasRibbon ? "#777" : badge.color;
-              const badgeBg = hasRibbon ? "#151515" : badge.bg;
-              const badgeBorder = hasRibbon ? "#262626" : badge.border;
+              // Only demote Claude (green) when ribbon is present - avoids double-green.
+              // Opencode (orange) and Codex (purple) keep their colors regardless.
+              const ribbonConflict = hasRibbon && session.provider === "claude";
+              const badgeColor = ribbonConflict ? "#777" : badge.color;
+              const badgeBg = ribbonConflict ? "#151515" : badge.bg;
+              const badgeBorder = ribbonConflict ? "#262626" : badge.border;
               return (
                 <span
                   title={`Provider: ${session.provider || "unknown"}`}
@@ -458,7 +460,7 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
         <span className="session-card__expand-icon">{expanded ? "\u25BE" : "\u25B8"}</span>
       </div>
 
-      {/* Actions — hidden until hover (CSS handles it) */}
+      {/* Actions - hidden until hover (CSS handles it) */}
       <div className="session-card__actions">
         <button
           style={{ ...styles.btn, ...(focused ? styles.btnPrimary : {}) }}
@@ -474,7 +476,7 @@ export function SessionCard({ session, isSource, isTarget, signalSuccess, signal
             ...(isIdle ? { opacity: 0.5 } : {}),
           }}
           onClick={() => setSendOpen((v) => !v)}
-          aria-label={isIdle ? `Session ended — see resume command` : `Send message to ${session.project}`}
+          aria-label={isIdle ? `Session ended - see resume command` : `Send message to ${session.project}`}
         >
           {isIdle ? "Ended" : sendOpen ? "Cancel" : "Send"}
         </button>
