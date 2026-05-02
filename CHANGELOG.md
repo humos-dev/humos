@@ -22,6 +22,14 @@ xattr -cr ~/Downloads/humOS.app && open ~/Downloads/humOS.app
 - **Install guard for debug builds.** If humOS is running from outside `/Applications` (e.g. a dev binary), the Restart button is replaced with "Installed. Restart humOS manually." to avoid opening a second instance.
 
 ### Fixed
+- **`canAutoRestart` now correctly gates the Restart button.** When running from a debug binary outside `/Applications`, the Restart button is replaced with "Restart humOS manually." to prevent the app from exiting with no replacement instance.
+- **Dismiss button hidden during downloading and installing** to prevent dismissing mid-install and leaving a background update task running with no visible state.
+- **Error state now shows a Retry button** so users can retry without dismissing and re-triggering manually.
+- **Raw Rust error strings sanitized** before display (truncated to 64 chars, "Error: " prefix stripped).
+- **Restart button uses session-health color** (`--signal` green) instead of coordination blue. Restarting is a health action, not a coordination action.
+- **All button font families use `var(--mono)`** - previously `var(--font)` violated the DESIGN.md mono-everywhere rule.
+- **Hardcoded hex colors replaced with CSS vars** - `#3ecf8e` -> `var(--signal)`, `#f87171` -> `var(--error)`.
+- **`/tmp` fallback path removed from updater.rs.** Non-UTF-8 temp paths now emit a proper error instead of silently using a hardcoded fallback that bypasses temp cleanup.
 - **`install.sh` sudo replaced with osascript admin dialog.** The previous `sudo mv` silently hung when called from a GUI context (no tty for password prompt). All installs now use `osascript do shell script ... with administrator privileges`, which works from both terminal and GUI apps.
 
 ## [0.6.4] - 2026-05-02

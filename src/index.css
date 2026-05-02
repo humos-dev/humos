@@ -470,7 +470,7 @@ body {
 }
 .update-banner__copy {
   font-size: 9px;
-  font-family: var(--font);
+  font-family: var(--mono);
   color: var(--coord);
   background: rgba(59, 130, 246, 0.08);
   border: 1px solid rgba(59, 130, 246, 0.25);
@@ -540,10 +540,10 @@ body {
 /* Restart button */
 .update-banner__restart {
   font-size: 9px;
-  font-family: var(--font);
-  color: var(--coord);
-  background: rgba(59, 130, 246, 0.08);
-  border: 1px solid rgba(59, 130, 246, 0.25);
+  font-family: var(--mono);
+  color: var(--signal);
+  background: rgba(62, 207, 142, 0.08);
+  border: 1px solid rgba(62, 207, 142, 0.30);
   border-radius: 3px;
   padding: 1px 8px;
   cursor: pointer;
@@ -555,7 +555,7 @@ body {
 /* Update trigger button */
 .update-banner__trigger {
   font-size: 9px;
-  font-family: var(--font);
+  font-family: var(--mono);
   color: var(--coord);
   background: rgba(59, 130, 246, 0.08);
   border: 1px solid rgba(59, 130, 246, 0.25);

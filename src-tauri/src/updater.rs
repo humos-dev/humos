@@ -185,7 +185,13 @@ async fn run_update(app: AppHandle, updating: Arc<AtomicBool>) {
     };
 
     let zip_path = tmp_dir.path().join("humos-update.zip");
-    let zip_str = zip_path.to_str().unwrap_or("/tmp/humos-update.zip");
+    let zip_str = match zip_path.to_str() {
+        Some(s) => s,
+        None => {
+            emit(&app, UpdateState { stage: "error", progress: None, error: Some("Temp path is not valid UTF-8.".into()), can_auto_restart: None });
+            return;
+        }
+    };
 
     if let Err(e) = download_zip(&app, &client, &download_url, zip_str).await {
         emit(&app, UpdateState { stage: "error", progress: None, error: Some(e), can_auto_restart: None });
@@ -195,7 +201,13 @@ async fn run_update(app: AppHandle, updating: Arc<AtomicBool>) {
     emit(&app, UpdateState { stage: "installing", progress: None, error: None, can_auto_restart: None });
 
     let extract_dir = tmp_dir.path().join("extracted");
-    let extract_str = extract_dir.to_str().unwrap_or("/tmp/humos-extracted");
+    let extract_str = match extract_dir.to_str() {
+        Some(s) => s,
+        None => {
+            emit(&app, UpdateState { stage: "error", progress: None, error: Some("Extract path is not valid UTF-8.".into()), can_auto_restart: None });
+            return;
+        }
+    };
 
     let unzip_ok = Command::new("unzip")
         .arg("-q")

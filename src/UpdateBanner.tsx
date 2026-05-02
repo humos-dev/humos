@@ -140,15 +140,7 @@ export function UpdateBanner({ version, releaseUrl, onDismiss }: Props) {
               {(updateStage as { stage: "downloading"; progress: number }).progress}%
             </span>
           </div>
-          <div className="update-banner__right">
-            <button
-              className="update-banner__dismiss"
-              onClick={handleDismiss}
-              aria-label="Dismiss update notification"
-            >
-              &#xD7;
-            </button>
-          </div>
+          <div className="update-banner__right" />
           <div
             className="update-banner__progress"
             role="progressbar"
@@ -183,18 +175,24 @@ export function UpdateBanner({ version, releaseUrl, onDismiss }: Props) {
       {/* ready */}
       {stage === "ready" && (
         <>
-          <div className="update-banner__left" style={{ color: "#3ecf8e" }}>
-            <span>&#x2713; humOS {version} ready</span>
+          <div className="update-banner__left" style={{ color: "var(--signal)" }}>
+            <span>&#x2713; humOS {version} installed</span>
           </div>
-          <div className="update-banner__cmd" />
+          <div className="update-banner__cmd">
+            {!(updateStage as { stage: "ready"; canAutoRestart: boolean }).canAutoRestart && (
+              <span className="update-banner__stage">Restart humOS manually to apply.</span>
+            )}
+          </div>
           <div className="update-banner__right">
-            <button
-              className="update-banner__restart"
-              onClick={handleRestart}
-              aria-label="Restart humOS to apply update"
-            >
-              Restart humOS
-            </button>
+            {(updateStage as { stage: "ready"; canAutoRestart: boolean }).canAutoRestart && (
+              <button
+                className="update-banner__restart"
+                onClick={handleRestart}
+                aria-label="Restart humOS to apply update"
+              >
+                Restart humOS
+              </button>
+            )}
             <button
               className="update-banner__dismiss"
               onClick={handleDismiss}
@@ -209,22 +207,29 @@ export function UpdateBanner({ version, releaseUrl, onDismiss }: Props) {
       {/* error */}
       {stage === "error" && (
         <>
-          <div className="update-banner__left" style={{ color: "#f87171" }}>
-            <span>&#x21; Update failed</span>
+          <div className="update-banner__left" style={{ color: "var(--error)" }}>
+            <span>&#x2715; Update failed</span>
           </div>
           <div className="update-banner__cmd">
             <span className="update-banner__stage">
-              {(updateStage as { stage: "error"; error: string }).error}
+              {((updateStage as { stage: "error"; error: string }).error || "Unknown error").replace(/^Error: /, "").slice(0, 64)}
             </span>
           </div>
           <div className="update-banner__right">
+            <button
+              className="update-banner__trigger"
+              onClick={handleUpdate}
+              aria-label="Retry update"
+            >
+              Retry
+            </button>
             <a
               href={releaseUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="update-banner__link"
             >
-              Try manually &#x2197;
+              Manual install &#x2197;
             </a>
             <button
               className="update-banner__dismiss"
