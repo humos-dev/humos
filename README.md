@@ -1,4 +1,4 @@
-# humOS — Unix primitives for AI agent coordination
+# humOS - Unix primitives for AI agent coordination
 
 A native macOS app that gives you pipe, signal, and (soon) join for your running agent CLI sessions. Route output between sessions automatically. Broadcast a constraint to all of them at once. **You are the message bus between your agents. humOS takes that job.**
 
@@ -33,7 +33,7 @@ One message. Every session receives it. Two-second undo in case you didn't mean 
 
 ## The product is the primitives
 
-The dashboard is what you see when you open humOS. It's useful on its own — live session status, one-click focus, instant summaries. But it's not the product. The product is what happens when you stop being the message bus between your sessions. pipe() fires and session B starts working without you touching a key. signal() redirects every agent at once. join() (coming) aggregates results when they're all done. The dashboard is the inspector. The primitives are the OS.
+The dashboard is what you see when you open humOS. It's useful on its own - live session status, one-click focus, instant summaries. But it's not the product. The product is what happens when you stop being the message bus between your sessions. pipe() fires and session B starts working without you touching a key. signal() redirects every agent at once. join() (coming) aggregates results when they're all done. The dashboard is the inspector. The primitives are the OS.
 
 ---
 
@@ -51,16 +51,25 @@ You're running four Claude sessions. One is writing a schema. One is writing tes
 brew tap humos-dev/humos && brew install --cask humos
 ```
 
-### Option 2: Download ZIP
+### Option 2: One-liner
+
+```bash
+curl -fsSL https://humos.dev/install.sh | sh
+```
+
+Downloads the latest release, clears macOS quarantine, and installs to `/Applications` automatically.
+
+### Option 3: Manual ZIP
 
 1. Download the latest `humOS_X.Y.Z_arm64.zip` from [GitHub Releases](https://github.com/humos-dev/humos/releases/latest)
-2. Unzip the archive
-3. Run the following command to clear the macOS quarantine flag:
+2. **Before extracting**, clear the macOS quarantine flag from the ZIP:
    ```bash
-   xattr -cr ~/Downloads/humOS.app
+   xattr -cr ~/Downloads/humOS_*.zip
    ```
-4. Drag **humOS.app** to Applications
-5. Open normally — if macOS shows "damaged and can't be opened", repeat step 3 with `/Applications/humOS.app`
+3. Double-click the ZIP to extract, drag **humOS.app** to Applications
+4. Open normally
+
+> **macOS says "damaged and can't be opened"?** This is Gatekeeper, not actual damage. Run `xattr -cr /Applications/humOS.app` in Terminal, then open again.
 
 **Requirements:**
 - macOS 13 or later (Apple Silicon)
@@ -127,7 +136,7 @@ Requires Rust (via [rustup](https://rustup.rs)) and Node.js.
 
 ## License
 
-MIT — see LICENSE.
+MIT - see LICENSE.
 
 ---
 

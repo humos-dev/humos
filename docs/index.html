@@ -700,13 +700,22 @@
           <code class="cmd cmd-wide"><span class="prompt">$ </span>brew tap humos-dev/humos &amp;&amp; brew install --cask humos</code>
           <button class="copy-btn" onclick="navigator.clipboard.writeText('brew tap humos-dev/humos && brew install --cask humos').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)}).catch(()=>{this.textContent='Failed';setTimeout(()=>this.textContent='Copy',1500)})" aria-label="Copy install command" aria-live="polite">Copy</button>
         </div>
-        <div style="margin-top: 24px; margin-bottom: 8px; font-family: var(--mono); font-size: 12px; color: var(--signal); text-transform: uppercase; letter-spacing: 0.08em;">Option 2: Download ZIP</div>
-        <div style="color: var(--text-1); font-size: 14.5px; line-height: 1.7;">
-          1. Download the latest <a href="https://github.com/humos-dev/humos/releases/latest" target="_blank" rel="noopener noreferrer" style="color: var(--signal); border-bottom: 1px dashed var(--signal-line);">humOS_X.Y.Z_arm64.zip</a> from GitHub Releases<br/>
-          2. Unzip the archive<br/>
-          3. Run in Terminal: <code>xattr -cr ~/Downloads/humOS.app</code><br/>
-          4. Drag <strong style="color: var(--text);">humOS.app</strong> to Applications and open normally<br/>
-          <span style="font-size: 13px; color: var(--text-3);">If macOS shows "damaged and can't be opened", run <code>xattr -cr /Applications/humOS.app</code> instead.</span>
+        <div style="margin-top: 24px; margin-bottom: 8px; font-family: var(--mono); font-size: 12px; color: var(--signal); text-transform: uppercase; letter-spacing: 0.08em;">Option 2: One-liner</div>
+        <div class="cmd-wrap">
+          <code class="cmd cmd-wide"><span class="prompt">$ </span>curl -fsSL https://humos.dev/install.sh | sh</code>
+          <button class="copy-btn" onclick="navigator.clipboard.writeText('curl -fsSL https://humos.dev/install.sh | sh').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)}).catch(()=>{this.textContent='Failed';setTimeout(()=>this.textContent='Copy',1500)})" aria-label="Copy one-liner install command" aria-live="polite">Copy</button>
+        </div>
+        <div style="margin-top: 24px; margin-bottom: 8px; font-family: var(--mono); font-size: 12px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.08em;">Option 3: Manual ZIP</div>
+        <div style="color: var(--text-1); font-size: 14px; line-height: 1.8;">
+          1. Download <a href="https://github.com/humos-dev/humos/releases/latest" target="_blank" rel="noopener noreferrer" style="color: var(--signal); border-bottom: 1px dashed var(--signal-line);">humOS_X.Y.Z_arm64.zip</a> from GitHub Releases<br/>
+          2. Open Terminal and run <strong style="color: var(--text);">before</strong> extracting:<br/>
+          <code style="display: block; margin: 6px 0 6px 16px; padding: 6px 10px; background: #0d0d0d; border-radius: 4px; font-size: 13px;">xattr -cr ~/Downloads/humOS_*.zip</code>
+          3. Double-click the ZIP to extract, drag <strong style="color: var(--text);">humOS.app</strong> to Applications<br/>
+          4. Open normally
+        </div>
+        <div style="margin-top: 12px; padding: 10px 14px; background: rgba(234,179,8,0.07); border: 1px solid rgba(234,179,8,0.25); border-radius: 5px; font-size: 13px; color: #ca8a04; line-height: 1.6;">
+          <strong>macOS says "damaged and can't be opened"?</strong> This is Gatekeeper blocking an unsigned app. humOS is not damaged. Run in Terminal:<br/>
+          <code style="color: #fbbf24;">xattr -cr /Applications/humOS.app</code> &mdash; then open again.
         </div>
         <div class="install-meta" style="margin-top: 20px;">requires macOS 13+ · Apple Silicon · Terminal.app or iTerm2 · MIT licensed</div>
       </div>
@@ -718,6 +727,10 @@
     <div class="wrap">
       <h2>FAQ</h2>
       <div class="faq-list">
+        <details class="faq-item">
+          <summary class="faq-q">macOS says humOS is "damaged and can't be opened." Why?</summary>
+          <p class="faq-a">macOS Gatekeeper blocks unsigned apps downloaded from the internet. humOS is not damaged. Open Terminal and run: <code>xattr -cr /Applications/humOS.app</code> then try opening again. If the app is still in Downloads, use <code>xattr -cr ~/Downloads/humOS.app</code> instead. The Homebrew and one-liner installs handle this automatically.</p>
+        </details>
         <details class="faq-item">
           <summary class="faq-q">What permissions does it need?</summary>
           <p class="faq-a">Accessibility permission to inject text into Terminal.app. macOS will prompt you on first use. You can revoke it anytime in System Settings.</p>
