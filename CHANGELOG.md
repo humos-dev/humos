@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.7.0] - TBD
+## [0.7.0] - 2026-05-04
 
 ### How to update
 
@@ -12,15 +12,13 @@ curl -fsSL https://humos.dev/install.sh | sh
 - **Daemon bundled inside the app.** `humos-daemon` ships inside `humOS.app/Contents/Resources/`. On first launch, if the daemon socket is not responding, the app auto-spawns it. Project Brain ribbon now works on a fresh ZIP install with no manual setup step.
 - **LaunchAgent auto-install.** On first launch from `/Applications`, humOS writes `dev.humos.daemon.plist` to `~/Library/LaunchAgents/` so the daemon persists after the app closes. Enables Project Brain ribbon context even when humOS is not open. A one-time banner confirms the install.
 - **"Daemon set to start at login" banner.** Appears once after the LaunchAgent is installed, reusing the existing update banner style. Dismissed with "Got it."
+- **opencode `waiting` status.** Detects when an opencode session is blocked on a tool-approval prompt by querying the event table for `step-start` as the most recent event. signal() now correctly targets waiting opencode sessions.
+- **Provenance headers on pipe injections.** Every pipe payload now carries `[from 'session' @ timestamp]` so the receiving session can self-detect stale context.
+- **Confirm dialog for bulk signal broadcast.** Broadcasting to more than 3 sessions requires a second Enter press. First press shows "Broadcasting to N sessions. Enter to confirm." Prevents accidental mass-broadcasts.
 
 ### Changed
 - `build-release.sh` always writes a fresh placeholder before building `humos-daemon` to prevent stale placeholders from prior failed builds being bundled. Adds Mach-O validation after build.
-
-### Planned (not yet shipped)
-- opencode `waiting` status (blocked on capturing event types from a real opencode session)
-- Provenance headers on pipe injections
-- Confirm dialog for bulk signal broadcast
-- Cross-vendor demo video
+- Landing page and README copy updated. Hero now leads with "Shell pipes connect commands. Session pipes connect agents." This distinguishes humOS session pipes from shell pipes (which Anthropic's own CLI docs also call pipes). Title updated to "Session pipes for any agent CLI."
 
 ---
 
