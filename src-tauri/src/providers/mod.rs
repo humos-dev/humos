@@ -139,6 +139,11 @@ mod tests {
             started_at: String::new(),
             modified_at: String::new(),
             provider: "nonexistent".into(),
+            input_tokens: 0,
+            output_tokens: 0,
+            cache_read_tokens: 0,
+            cache_creation_tokens: 0,
+            model: String::new(),
         };
         assert!(registry.inject(&session, "hi").is_err());
         assert!(registry.focus(&session).is_err());

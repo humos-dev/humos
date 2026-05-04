@@ -347,6 +347,11 @@ mod tests {
             started_at: String::new(),
             modified_at: String::new(),
             provider: "claude".to_string(),
+            input_tokens: 0,
+            output_tokens: 0,
+            cache_read_tokens: 0,
+            cache_creation_tokens: 0,
+            model: String::new(),
         }
     }
 

@@ -5,10 +5,11 @@ import { SessionCard } from "./SessionCard";
 import { BrainRibbon } from "./BrainRibbon";
 import { UpdateBanner } from "./UpdateBanner";
 import { DaemonLoginBanner } from "./DaemonLoginBanner";
+import { WereAwayBanner } from "./WereAwayBanner";
 import { useVersionCheck } from "./hooks/useVersionCheck";
 import { useRelatedContexts } from "./hooks/useRelatedContexts";
 import { PipeConfig } from "./PipeConfig";
-import type { SessionState } from "./types";
+import type { SessionState, PipeTokenState } from "./types";
 import { colors, spacing, fontSize, radius } from "./tokens";
 
 interface DaemonHealth {
@@ -32,6 +33,7 @@ interface PipeFiredEvent {
   message: string;
   success: boolean;
   error?: string;
+  payload_tokens: number;
 }
 
 interface PipeRule {
@@ -323,6 +325,10 @@ export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawEdgesRef = useRef<() => void>(() => {});
   const [pipeHistory, setPipeHistory] = useState<Map<string, { fromProject: string; ts: number }>>(new Map());
+  // Last-fire token snapshot per pipe rule. Wired via the pipe-fired listener.
+  // payload_tokens comes from the Rust event; source_tokens is summed from the
+  // source session's input + output tokens at fire time.
+  const [pipeTokens, setPipeTokens] = useState<Map<string, PipeTokenState>>(new Map());
   // Monotonic log entry counter. Initialized to one past the highest id in
   // the persisted log so new entries never collide with restored ones.
   // Without this, useRef(0) reset on every app launch and new pipe/signal
@@ -420,16 +426,33 @@ export default function App() {
     let cancelAnim: (() => void) | null = null;
 
     const unlisten = listen<PipeFiredEvent>("pipe-fired", (event) => {
-      const { from_session_id, to_session_id, success, error } = event.payload;
+      const { rule_id, from_session_id, to_session_id, success, error, payload_tokens } = event.payload;
 
       // Use the ref so this closure is never stale.
       const current = sessionsRef.current;
-      const fromName =
-        current.find((s) => s.id === from_session_id)?.project ??
-        from_session_id.slice(0, 8);
+      const fromSession = current.find((s) => s.id === from_session_id);
+      const fromName = fromSession?.project ?? from_session_id.slice(0, 8);
       const toName =
         current.find((s) => s.id === to_session_id)?.project ??
         to_session_id.slice(0, 8);
+
+      // Snapshot the source session's cumulative tokens at fire time so the
+      // savings ratio reflects what the source had built up vs what the pipe
+      // forwarded. Update on BOTH success and failure so the badge never
+      // shows stale success-only data on a rule that's been failing.
+      // opencode sessions report 0 for both fields, in which case PipeConfig
+      // renders the "tokens: n/a" fallback.
+      const sourceTokens =
+        (fromSession?.input_tokens ?? 0) + (fromSession?.output_tokens ?? 0);
+      setPipeTokens((prev) => {
+        const next = new Map(prev);
+        next.set(rule_id, {
+          payload_tokens: payload_tokens ?? 0,
+          source_tokens: sourceTokens,
+          success,
+        });
+        return next;
+      });
 
       // Only animate the pipe line on successful injection.
       if (success) {
@@ -455,8 +478,22 @@ export default function App() {
       }
 
       setLog((prev) => {
+        // Format: "⌁ pipe: api → tests · 180 tokens" on success.
+        // payload_tokens === 0 (or undefined) means no token data, e.g. opencode
+        // source. Render "tokens: n/a" instead of "0 tokens".
+        // Clamp display at 1B tokens so a corrupted/wild number can't blow out
+        // the activity log row width. Beyond 1B render "1B+ tokens".
+        const TOKEN_DISPLAY_CAP = 1_000_000_000;
+        let tokenSuffix: string;
+        if (!payload_tokens || payload_tokens <= 0) {
+          tokenSuffix = "tokens: n/a";
+        } else if (payload_tokens > TOKEN_DISPLAY_CAP) {
+          tokenSuffix = "1B+ tokens";
+        } else {
+          tokenSuffix = `${payload_tokens.toLocaleString()} tokens`;
+        }
         const text = success
-          ? `pipe fired: ${fromName} → ${toName}`
+          ? `⌁ pipe: ${fromName} → ${toName} · ${tokenSuffix}`
           : `pipe failed: ${fromName} → ${toName}${error ? ` (${error.slice(0, 60)})` : ""}`;
         const entry: LogEntry = {
           id: logSeqRef.current++,
@@ -789,6 +826,9 @@ export default function App() {
       {/* One-time banner shown after LaunchAgent is installed on first launch */}
       <DaemonLoginBanner />
 
+      {/* Were-away banner shows after a 5+ minute gap with new coordination events */}
+      <WereAwayBanner />
+
       {signalOpen && (
         <div
           className={`signal-command-bar${signalError ? " signal-command-bar--error" : ""}`}
@@ -991,6 +1031,7 @@ export default function App() {
           <PipeConfig
             sessions={sessions}
             rules={pipeRules}
+            tokens={pipeTokens}
             onRulesChanged={loadPipeRules}
             onClose={() => setPipeOpen(false)}
           />

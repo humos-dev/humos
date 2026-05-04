@@ -8,17 +8,17 @@ use serde_json::Value;
 
 use crate::SessionState;
 
-/// Raw JSONL line — all fields are optional because not every line has all of them.
+/// Raw JSONL line. All fields are optional because not every line has all of them.
 #[derive(Deserialize, Debug)]
 struct RawLine {
     /// Top-level event type: "user", "assistant", "progress", "file-history-snapshot", etc.
     #[serde(rename = "type")]
     kind: Option<String>,
 
-    /// Present on most lines — the working directory for the session.
+    /// Present on most lines: the working directory for the session.
     cwd: Option<String>,
 
-    /// Present on most lines — the session UUID.
+    /// Present on most lines: the session UUID.
     #[serde(rename = "sessionId")]
     session_id: Option<String>,
 
@@ -49,6 +49,14 @@ pub fn parse_session_file(path: &Path) -> Option<SessionState> {
     let mut recent_tools: Vec<String> = Vec::new();
     let mut last_role: Option<String> = None;
     let mut session_id = filename.clone();
+    let mut input_tokens: u64 = 0;
+    let mut output_tokens: u64 = 0;
+    let mut cache_read_tokens: u64 = 0;
+    let mut cache_creation_tokens: u64 = 0;
+    let mut model = String::new();
+    // Claude Code emits the same assistant message_id multiple times during
+    // tool-use sub-flows. Dedupe by id so token counters are not inflated.
+    let mut seen_assistant_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     for line in content.lines() {
         let line = line.trim();
@@ -92,6 +100,37 @@ pub fn parse_session_file(path: &Path) -> Option<SessionState> {
 
         if kind == "assistant" {
             if let Some(msg) = &parsed.message {
+                if model.is_empty() {
+                    if let Some(m) = msg.get("model").and_then(|v| v.as_str()) {
+                        if !m.is_empty() {
+                            model = m.to_string();
+                        }
+                    }
+                }
+                // Dedupe: Claude Code repeats the same assistant message_id during
+                // tool-use sub-flows. Sum/track usage only on first sight per id.
+                let msg_id = msg.get("id").and_then(|v| v.as_str()).map(|s| s.to_string());
+                let first_sight = match &msg_id {
+                    Some(id) => seen_assistant_ids.insert(id.clone()),
+                    None => true,
+                };
+                if first_sight {
+                    if let Some(usage) = msg.get("usage") {
+                        let u_in = usage.get("input_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
+                        let u_out = usage.get("output_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
+                        let u_cache_read = usage.get("cache_read_input_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
+                        let u_cache_create = usage.get("cache_creation_input_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
+                        // input_tokens (per-turn deltas) and output_tokens are summed.
+                        // saturating_add guards against corrupted/hostile JSONL with absurd values.
+                        input_tokens = input_tokens.saturating_add(u_in);
+                        output_tokens = output_tokens.saturating_add(u_out);
+                        // cache_read grows monotonically across turns (full prefix re-fed each call).
+                        // Take the MAX, not the sum, so the "context size" estimate matches what
+                        // the source session actually carries on its latest turn.
+                        cache_read_tokens = cache_read_tokens.max(u_cache_read);
+                        cache_creation_tokens = cache_creation_tokens.max(u_cache_create);
+                    }
+                }
                 if let Some(content_arr) = msg.get("content").and_then(|c| c.as_array()) {
                     for item in content_arr {
                         let item_type = item.get("type").and_then(|t| t.as_str()).unwrap_or("");
@@ -166,6 +205,11 @@ pub fn parse_session_file(path: &Path) -> Option<SessionState> {
         started_at,
         modified_at,
         provider: "claude".to_string(),
+        input_tokens,
+        output_tokens,
+        cache_read_tokens,
+        cache_creation_tokens,
+        model,
     })
 }
 
@@ -241,7 +285,7 @@ end tell"#)
 ///
 /// Both "running" and "waiting" require the file to have been modified
 /// recently (within 5 minutes). A session whose JSONL hasn't been touched
-/// in hours is dead regardless of what the last role was — the Terminal
+/// in hours is dead regardless of what the last role was. The Terminal
 /// tab was likely closed without Claude writing a final entry.
 fn compute_status(last_role: Option<&str>, modified_age_secs: u64) -> String {
     match last_role {
@@ -354,7 +398,7 @@ mod tests {
 
     #[test]
     fn test_no_cwd_session_id_from_filename() {
-        // No cwd in the line, but sessionId present — should use sessionId
+        // No cwd in the line, but sessionId present, so should use sessionId
         let ts = recent_ts();
         // The filename stem will be the temp file name; sessionId overrides it
         let line = format!(
@@ -369,6 +413,76 @@ mod tests {
         let f = write_jsonl(&[&line, &cwd_line]);
         let result = parse_session_file(f.path()).unwrap();
         assert_eq!(result.id, "override-id");
+    }
+
+    #[test]
+    fn test_token_accumulation_from_assistant_usage() {
+        // Two distinct assistant messages: input/output sum, cache fields take max.
+        let ts = recent_ts();
+        let line1 = format!(
+            r#"{{"type":"assistant","cwd":"/tmp/proj","sessionId":"tok-test","timestamp":"{}","message":{{"id":"msg_aaa","role":"assistant","model":"claude-sonnet-4-6","content":[{{"type":"text","text":"hi"}}],"usage":{{"input_tokens":100,"output_tokens":50,"cache_read_input_tokens":200,"cache_creation_input_tokens":10}}}}}}"#,
+            ts
+        );
+        let line2 = format!(
+            r#"{{"type":"assistant","cwd":"/tmp/proj","sessionId":"tok-test","timestamp":"{}","message":{{"id":"msg_bbb","role":"assistant","model":"claude-sonnet-4-6","content":[{{"type":"text","text":"again"}}],"usage":{{"input_tokens":40,"output_tokens":20,"cache_read_input_tokens":300,"cache_creation_input_tokens":5}}}}}}"#,
+            ts
+        );
+        let f = write_jsonl(&[&line1, &line2]);
+        let result = parse_session_file(f.path()).unwrap();
+        assert_eq!(result.input_tokens, 140, "input deltas sum across distinct messages");
+        assert_eq!(result.output_tokens, 70, "output deltas sum across distinct messages");
+        assert_eq!(result.cache_read_tokens, 300, "cache_read takes max (monotonic)");
+        assert_eq!(result.cache_creation_tokens, 10, "cache_creation takes max");
+        assert_eq!(result.model, "claude-sonnet-4-6");
+    }
+
+    #[test]
+    fn test_duplicate_message_id_does_not_inflate_tokens() {
+        // Claude Code repeats the same assistant message during tool sub-flows.
+        // Each repeat must NOT inflate token counts.
+        let ts = recent_ts();
+        let dup = format!(
+            r#"{{"type":"assistant","cwd":"/tmp/proj","sessionId":"dup-test","timestamp":"{}","message":{{"id":"msg_same","role":"assistant","model":"claude-sonnet-4-6","content":[],"usage":{{"input_tokens":3,"output_tokens":567,"cache_read_input_tokens":11631,"cache_creation_input_tokens":11015}}}}}}"#,
+            ts
+        );
+        let f = write_jsonl(&[&dup, &dup, &dup]);
+        let result = parse_session_file(f.path()).unwrap();
+        assert_eq!(result.input_tokens, 3, "repeats must not inflate input");
+        assert_eq!(result.output_tokens, 567, "repeats must not inflate output");
+        assert_eq!(result.cache_read_tokens, 11631);
+        assert_eq!(result.cache_creation_tokens, 11015);
+    }
+
+    #[test]
+    fn test_saturating_add_on_absurd_input_tokens() {
+        // Hostile or corrupted JSONL with u64::MAX must not panic or wrap.
+        let ts = recent_ts();
+        let line1 = format!(
+            r#"{{"type":"assistant","cwd":"/tmp/proj","sessionId":"sat-test","timestamp":"{}","message":{{"id":"msg_1","role":"assistant","content":[],"usage":{{"input_tokens":18446744073709551615,"output_tokens":1}}}}}}"#,
+            ts
+        );
+        let line2 = format!(
+            r#"{{"type":"assistant","cwd":"/tmp/proj","sessionId":"sat-test","timestamp":"{}","message":{{"id":"msg_2","role":"assistant","content":[],"usage":{{"input_tokens":100,"output_tokens":1}}}}}}"#,
+            ts
+        );
+        let f = write_jsonl(&[&line1, &line2]);
+        let result = parse_session_file(f.path()).unwrap();
+        assert_eq!(result.input_tokens, u64::MAX, "saturating_add must not wrap");
+        assert_eq!(result.output_tokens, 2);
+    }
+
+    #[test]
+    fn test_missing_usage_defaults_to_zero() {
+        let ts = recent_ts();
+        let line = format!(
+            r#"{{"type":"assistant","cwd":"/tmp/proj","sessionId":"no-usage","timestamp":"{}","message":{{"role":"assistant","content":[{{"type":"text","text":"no usage block"}}]}}}}"#,
+            ts
+        );
+        let f = write_jsonl(&[&line]);
+        let result = parse_session_file(f.path()).unwrap();
+        assert_eq!(result.input_tokens, 0);
+        assert_eq!(result.output_tokens, 0);
+        assert_eq!(result.model, "");
     }
 
     #[test]

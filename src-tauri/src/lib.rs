@@ -1,5 +1,7 @@
 mod applescript;
 mod daemon_client;
+mod event_log;
+mod model_prices;
 mod parser;
 pub mod pipe;
 pub mod providers;
@@ -163,6 +165,9 @@ async fn signal_sessions(
         log::error!("emit signal-fired error: {}", e);
     }
 
+    // Persist to event_log for WereAwayBanner replay. Fire-and-forget.
+    event_log::record_signal(&sanitized, &evt.success_ids, &evt.fail_ids);
+
     // Preview: char-based truncation (not byte slice) - avoids panic on
     // multi-byte UTF-8 boundaries (emoji, non-ASCII).
     let preview: String = sanitized.chars().take(60).collect();
@@ -184,8 +189,10 @@ struct PipeFired {
     from_session_id: String,
     to_session_id: String,
     message: String,
-    success: bool,           // add this
-    error: Option<String>,   // add this
+    success: bool,
+    error: Option<String>,
+    payload_tokens: u64,
+    source_tokens: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -201,6 +208,16 @@ pub struct SessionState {
     pub started_at: String,
     pub modified_at: String,
     pub provider: String,
+    #[serde(default)]
+    pub input_tokens: u64,
+    #[serde(default)]
+    pub output_tokens: u64,
+    #[serde(default)]
+    pub cache_read_tokens: u64,
+    #[serde(default)]
+    pub cache_creation_tokens: u64,
+    #[serde(default)]
+    pub model: String,
 }
 
 /// Tauri command: return all known sessions as a sorted Vec.
@@ -662,6 +679,19 @@ fn start_session_poll(
                         (false, Some(e.clone()))
                     }
                 };
+
+                // Estimate payload tokens from char count (~0.25 tokens per char).
+                // Exact tokenization can ship later; estimate is honest enough for v0.7.1.
+                let payload_tokens = (action.message.chars().count() as u64).div_ceil(4);
+
+                // Look up source session's accumulated tokens for the savings ratio.
+                let source_tokens = {
+                    let map = sessions.lock().unwrap_or_else(|e| e.into_inner());
+                    map.get(&action.from_session_id)
+                        .map(|s| s.input_tokens + s.output_tokens)
+                        .unwrap_or(0)
+                };
+
                 let fired_evt = PipeFired {
                     rule_id: action.rule_id.clone(),
                     from_session_id: action.from_session_id.clone(),
@@ -669,8 +699,13 @@ fn start_session_poll(
                     message: action.message.clone(),
                     success,
                     error: error_msg,
+                    payload_tokens,
+                    source_tokens,
                 };
                 let _ = app.emit("pipe-fired", &fired_evt);
+
+                // Persist to event_log for WereAwayBanner replay. Fire-and-forget.
+                event_log::record_pipe(&action.message, success, payload_tokens, source_tokens);
             }
         }
     });
@@ -837,9 +872,35 @@ fn check_login_item_banner() -> bool {
         .unwrap_or(false)
 }
 
+/// Tauri command: USD cost for a model and token counts.
+/// Returns None if the model is unknown to the price table.
+#[tauri::command]
+fn get_model_cost(model: String, input_tokens: u64, output_tokens: u64) -> Option<f64> {
+    model_prices::cost_for(&model, input_tokens, output_tokens)
+}
+
+/// Tauri command: return the most recent N coordination events.
+/// Used by the WereAwayBanner on app mount to summarize what happened.
+#[tauri::command]
+fn list_event_log(limit: usize) -> Vec<event_log::EventLogEntry> {
+    let cap = limit.min(500);
+    event_log::list_recent(cap)
+}
+
+/// Tauri command: return the event log writer's health state.
+/// "ok" means writes are flowing. "init_failed" or "queue_saturated" means
+/// the activity log can show a chip warning the user that history is degraded.
+#[tauri::command]
+fn event_log_health() -> event_log::HealthState {
+    event_log::health()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     env_logger::init();
+
+    // Open the event log database. Safe to call before any pipe/signal fires.
+    event_log::init();
 
     let sessions: SessionMap = Arc::new(Mutex::new(HashMap::new()));
     let pipe_manager: Arc<Mutex<pipe::PipeManager>> = Arc::new(Mutex::new(pipe::PipeManager::new()));
@@ -880,6 +941,9 @@ pub fn run() {
             check_daemon_health,
             get_related_context,
             check_login_item_banner,
+            get_model_cost,
+            list_event_log,
+            event_log_health,
             updater::start_self_update,
             updater::restart_app,
         ])
@@ -909,6 +973,11 @@ mod tests {
             started_at: String::new(),
             modified_at: modified_at.into(),
             provider: "claude".into(),
+            input_tokens: 0,
+            output_tokens: 0,
+            cache_read_tokens: 0,
+            cache_creation_tokens: 0,
+            model: String::new(),
         }
     }
 

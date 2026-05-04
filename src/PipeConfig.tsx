@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { SessionState } from "./types";
+import type { SessionState, PipeTokenState } from "./types";
 
 type TriggerKind = "on_idle" | "on_file_write";
 
@@ -16,6 +16,7 @@ interface PipeRule {
 interface Props {
   sessions: SessionState[];
   rules: PipeRule[];
+  tokens?: Map<string, PipeTokenState>;
   onRulesChanged: () => Promise<void>;
   onClose?: () => void;
 }
@@ -29,7 +30,61 @@ function triggerLabel(rule: PipeRule): string {
   return "unknown";
 }
 
-export function PipeConfig({ sessions, rules, onRulesChanged, onClose }: Props) {
+// Format the per-rule token badge. Returns null when neither payload nor source
+// has data, which signals "render n/a fallback only" to the caller.
+function formatTokenBadge(state: PipeTokenState | undefined, toName: string): React.ReactNode {
+  // No fire yet for this rule. Match the wireframe "no pipe fires yet" copy.
+  if (!state) {
+    return (
+      <span style={{ color: "var(--text-3)" }}>No pipe fires yet</span>
+    );
+  }
+
+  const { payload_tokens, source_tokens, success } = state;
+  const failedSuffix = success ? "" : " (failed)";
+
+  // Source has zero token data (opencode sessions report 0 for input/output).
+  // Skip the savings line entirely per spec.
+  if (source_tokens === 0) {
+    return (
+      <span style={{ color: "var(--text-3)" }}>tokens: n/a{failedSuffix}</span>
+    );
+  }
+
+  // Edge: payload >= source means the pipe forwarded the full context (or
+  // more, e.g. heavy multibyte content vs tiny session). The "X% lighter"
+  // framing is wrong here, so render an alternate copy.
+  if (payload_tokens >= source_tokens) {
+    return (
+      <>
+        <div>
+          Last fire: {payload_tokens.toLocaleString()} tokens → {toName}{failedSuffix}
+        </div>
+        <div>
+          Source: {source_tokens.toLocaleString()} tokens · forwarded full context
+        </div>
+      </>
+    );
+  }
+
+  const savingsPct = Math.round(
+    ((source_tokens - payload_tokens) / source_tokens) * 100,
+  );
+
+  return (
+    <>
+      <div>
+        Last fire: {payload_tokens.toLocaleString()} tokens → {toName}{failedSuffix}
+      </div>
+      <div>
+        Source: {source_tokens.toLocaleString()} tokens ·{" "}
+        <span style={{ color: "var(--coord)" }}>{savingsPct}%</span> lighter
+      </div>
+    </>
+  );
+}
+
+export function PipeConfig({ sessions, rules, tokens, onRulesChanged, onClose }: Props) {
   const [fromId, setFromId] = useState("");
   const [toId, setToId] = useState("");
   const [trigger, setTrigger] = useState<TriggerKind>("on_idle");
@@ -111,15 +166,33 @@ export function PipeConfig({ sessions, rules, onRulesChanged, onClose }: Props) 
             {rules.map((r) => {
               const from = sessions.find((s) => s.id === r.from_session_id);
               const to = sessions.find((s) => s.id === r.to_session_id);
+              const toName = to?.project ?? r.to_session_id;
+              const tokenState = tokens?.get(r.id);
               return (
-                <div key={r.id} className="pipe-config__rule-item">
-                  <span className="pipe-config__rule-desc">
-                    <strong>{from?.project ?? r.from_session_id}</strong>
-                    {" → "}
-                    <strong>{to?.project ?? r.to_session_id}</strong>
-                    {"  "}
-                    <span style={{ color: "var(--text-2)" }}>{triggerLabel(r)}</span>
-                  </span>
+                <div
+                  key={r.id}
+                  className="pipe-config__rule-item"
+                  style={{ alignItems: "flex-start" }}
+                >
+                  <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <span className="pipe-config__rule-desc">
+                      <strong>{from?.project ?? r.from_session_id}</strong>
+                      {" → "}
+                      <strong>{toName}</strong>
+                      {"  "}
+                      <span style={{ color: "var(--text-2)" }}>{triggerLabel(r)}</span>
+                    </span>
+                    <div
+                      style={{
+                        fontSize: "10px",
+                        color: "var(--text-2)",
+                        lineHeight: 1.5,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {formatTokenBadge(tokenState, toName)}
+                    </div>
+                  </div>
                   <button
                     className="pipe-config__remove-btn"
                     onClick={() => handleRemove(r.id)}

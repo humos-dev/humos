@@ -145,6 +145,11 @@ impl Provider for OpenCodeProvider {
                 started_at: ms_to_rfc3339(time_created),
                 modified_at: ms_to_rfc3339(time_updated),
                 provider: "opencode".to_string(),
+                input_tokens: 0,
+                output_tokens: 0,
+                cache_read_tokens: 0,
+                cache_creation_tokens: 0,
+                model: String::new(),
             });
         }
         out
