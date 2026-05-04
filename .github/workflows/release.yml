@@ -1,10 +1,10 @@
-# Release humOS — unsigned macOS build
+# Release humOS, unsigned macOS build.
 #
 # Triggered by pushing a semver tag (v1.2.3) or manually via the Actions tab.
 # Uses tauri-action to build and draft a GitHub Release with the .dmg attached.
 # Review the draft, then hit Publish.
 #
-# NOT signed or notarized — no Apple Developer ID required.
+# NOT signed or notarized. No Apple Developer ID required.
 # Users install via Homebrew (handles quarantine removal automatically) or
 # run `xattr -cr /Applications/humOS.app` after manual .dmg install.
 
@@ -23,7 +23,7 @@ on:
 jobs:
   release:
     name: Build, sign, notarize, draft release
-    # Apple Silicon runner — matches humOS's primary target audience.
+    # Apple Silicon runner: matches humOS's primary target audience.
     runs-on: macos-14
 
     permissions:
@@ -45,10 +45,29 @@ jobs:
       - name: Rust build cache
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri -> target
+          # The Cargo workspace root is the repo root, not src-tauri/. Tauri
+          # builds into ./target/release/, not src-tauri/target/. Cache the
+          # right directory so subsequent runs actually hit the cache.
+          workspaces: . -> target
 
       - name: Install frontend dependencies
         run: npm install
+
+      - name: Build humos-daemon
+        # tauri.conf.json declares ../target/release/humos-daemon as a bundle
+        # resource. Tauri validates the path before compiling the main app, so
+        # the daemon must exist on disk before tauri-action runs. Mirrors the
+        # local scripts/build-release.sh sequence: write a placeholder so the
+        # path validation passes, then build the real daemon.
+        run: |
+          mkdir -p target/release
+          printf '#!/bin/sh\n' > target/release/humos-daemon
+          chmod +x target/release/humos-daemon
+          cargo build --release -p humos-daemon
+          file target/release/humos-daemon | grep -q "Mach-O" || {
+            echo "ERROR: humos-daemon is not a valid Mach-O binary"
+            exit 1
+          }
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
@@ -76,11 +95,13 @@ jobs:
         run: |
           VERSION="${{ github.event.inputs.tag || github.ref_name }}"
           VERSION="${VERSION#v}"
-          APP_PATH="src-tauri/target/release/bundle/macos/humOS.app"
+          # Cargo workspace root is the repo root, so Tauri writes the bundle
+          # to ./target/release/bundle/macos/, not src-tauri/target/.
+          APP_PATH="target/release/bundle/macos/humOS.app"
 
           if [ ! -d "$APP_PATH" ]; then
             echo "App bundle not found at $APP_PATH, searching..."
-            APP_PATH=$(find src-tauri/target -name "humOS.app" -type d | head -1)
+            APP_PATH=$(find target src-tauri/target -name "humOS.app" -type d 2>/dev/null | head -1)
           fi
 
           if [ -z "$APP_PATH" ] || [ ! -d "$APP_PATH" ]; then

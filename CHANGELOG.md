@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.7.1] - 2026-05-04
+
+### How to update
+
+```bash
+curl -fsSL https://humos.dev/install.sh | sh
+```
+
+### Added
+- **Activity Panel: token instrumentation.** Every Claude session card now carries cumulative `input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_creation_tokens`, and the model id, parsed straight from the JSONL `message.usage.*` block. Token counts dedupe by `message.id` so duplicate emissions during tool sub-flows do not inflate the totals. Cache fields take MAX (monotonic across turns), input/output sum, all with `saturating_add` against corrupted JSONL.
+- **Activity log token counts on pipe events.** New format: `⌁ pipe: api → tests · 180 tokens`. Falls back to `tokens: n/a` for opencode source sessions that do not surface usage data. Display clamps at 1B tokens so a runaway value cannot blow out the row.
+- **Per-pipe token badge on PipeConfig rule cards.** Below each rule, in muted text: `Last fire: 180 tokens → tests` and `Source: 12,400 tokens · 98% lighter`. Savings percentage rendered in `--coord` blue. Renders `(failed)` suffix when last fire did not deliver. Renders `forwarded full context` when payload size meets or exceeds source.
+- **WereAwayBanner.** On app open after a 5+ minute gap, summarizes coordination events that happened while humOS was closed: `While you were away: 3 pipes fired (515 tokens), 1 signal broadcast.` Failed events render in error red. Dismissable. Negative or malformed timestamps are treated as "show if there are events" so clock skew or localStorage corruption do not silently suppress the banner.
+- **Event log SQLite store.** `~/.humOS/event-log.db` records every pipe fire and signal broadcast. Schema: id, ts, event_type, message, success, payload_tokens, source_tokens, success_ids, fail_ids. WAL journal mode for concurrent read tolerance.
+- **Bounded mpsc writer thread.** SQLite writes happen on a dedicated thread fed by a 256-event bounded channel. The poll loop never blocks on disk I/O. If the channel saturates (network mount unresponsive), events are dropped and health flips to `queue_saturated`.
+- **Event log health surface.** New `event_log_health()` Tauri command returns `ok | init_failed | queue_saturated | uninitialized`. WereAwayBanner renders a red chip when degraded so the user knows history is incomplete instead of silently empty.
+- **Model pricing module.** `~/.humOS/model-prices.json` with hardcoded fallback for Sonnet 4.6, Opus 4.7, Haiku 4.5. New `get_model_cost(model, input, output)` Tauri command. Per-entry validation rejects NaN, Infinity, negative, or oversize prices. Output guard returns `None` on non-finite totals. Cached in `OnceLock` so the activity panel can poll without hitting disk.
+
+### Tests
+- 57 unit tests pass (was 51). New coverage: token dedup by message_id, cache MAX semantics, saturating_add against u64::MAX, valid_price rejection of NaN/Inf/negative/oversize, cost_for finite-result guard, event_log health states, queue saturation under flood.
+
+### Fixed
+- **GitHub Actions Release workflow.** Adds a `Build humos-daemon` step before `tauri-action`. Tauri validates the `../target/release/humos-daemon` resource path before compiling the main app, so the daemon must exist on disk first. Fixes "resource path doesn't exist" error that broke every release since v0.6.3. Also corrects the bundle path lookup and Rust cache scope from `src-tauri/target` to the workspace root `target/`.
+
+---
+
 ## [0.7.0] - 2026-05-04
 
 ### How to update
