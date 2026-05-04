@@ -316,6 +316,7 @@ export default function App() {
   const [signalOpen, setSignalOpen] = useState(false);
   const [signalMessage, setSignalMessage] = useState("");
   const [signalPending, setSignalPending] = useState(false);
+  const [signalConfirmPending, setSignalConfirmPending] = useState(false);
   const [signalFlashIds, setSignalFlashIds] = useState<Set<string>>(new Set());
   const [signalFailIds, setSignalFailIds] = useState<Set<string>>(new Set());
   const [signalError, setSignalError] = useState<string | null>(null);
@@ -590,6 +591,15 @@ export default function App() {
   function handleSignalSubmit() {
     const msg = signalMessage.trim();
     if (!msg || signalPending) return;
+
+    // Confirmation gate: broadcasting to more than 3 sessions requires an
+    // explicit second Enter press. This prevents accidental mass-broadcasts.
+    if (nonIdleCount > 3 && !signalConfirmPending) {
+      setSignalConfirmPending(true);
+      return;
+    }
+    setSignalConfirmPending(false);
+
     // Hard guard against stacked undo timers: if one is already queued,
     // cancel it before starting a new one.
     if (signalUndoRef.current) {
@@ -666,6 +676,7 @@ export default function App() {
       signalUndoRef.current = null;
     }
     setSignalPending(false);
+    setSignalConfirmPending(false);
     setSignalOpen(false);
     setSignalMessage("");
     setSignalError(null);
@@ -807,6 +818,14 @@ export default function App() {
           {signalMessage.length > 350 && (
             <span className={`signal-command-bar__counter${signalMessage.length > 460 ? " signal-command-bar__counter--warn" : ""}`}>
               {signalMessage.length}/512
+            </span>
+          )}
+          {signalConfirmPending && (
+            <span className="signal-command-bar__toast" style={{ color: "var(--warn, #f59e0b)" }}>
+              Broadcasting to {nonIdleCount} sessions. Enter to confirm,{" "}
+              <button className="signal-command-bar__cancel" onClick={handleSignalCancel}>
+                Esc to cancel
+              </button>
             </span>
           )}
           {signalPending && (

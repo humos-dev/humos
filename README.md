@@ -1,8 +1,10 @@
-# humOS - Unix primitives for AI agent coordination
+# humOS - Session pipes for any agent CLI
 
-A native macOS app that gives you pipe, signal, and (soon) join for your running agent CLI sessions. Route output between sessions automatically. Broadcast a constraint to all of them at once. **You are the message bus between your agents. humOS takes that job.**
+Shell pipes connect commands. Session pipes connect agents.
 
-Supports Claude Code and opencode out of the box. Codex CLI, Cursor, and Cline next.
+humOS gives you pipe(), signal(), and (soon) join() across every agent CLI running on your Mac. Claude Code, opencode, Codex CLI, Cursor, Cline. One dashboard. One broadcast. No API costs. Operates on the real sessions you already have open.
+
+**You are the message bus between your agents. humOS takes that job.**
 
 Built for developers who run 3 to 20 parallel agent sessions and are tired of tab-switching to relay context between them. Conductor spawns its own sandboxed sessions. opcode reads JSONL files. claude-control shows a dashboard. humOS operates on the real sessions you already have open, regardless of which agent CLI runs them, and gives you primitives to coordinate them.
 

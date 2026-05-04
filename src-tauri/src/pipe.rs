@@ -201,7 +201,7 @@ impl PipeManager {
 
                     // Only match against tool invocation lines (start with "Running:").
                     // Assistant text narrating file operations (e.g. "I updated schema.json")
-                    // must not trigger the rule — only actual tool calls should.
+                    // must not trigger the rule. Only actual tool calls should.
                     if output_changed
                         && source.last_output.starts_with("Running:")
                     {
@@ -231,7 +231,7 @@ impl PipeManager {
                 self.last_fired.insert(rule.id.clone(), now);
                 let message = build_message(rule, source);
                 log::info!(
-                    "pipe: rule {} fired — injecting into session {} (cwd: {})",
+                    "pipe: rule {} fired. Injecting into session {} (cwd: {})",
                     rule.id,
                     rule.to_session_id,
                     target.cwd
@@ -274,22 +274,23 @@ impl Default for PipeManager {
 }
 
 /// Build the message that will be injected into the target terminal.
+///
+/// Each message is prefixed with a provenance header so the receiving session
+/// knows which session sent the context and when. This lets the model
+/// self-detect staleness: "this came from 'api' at 14:32. Is it still current?"
 fn build_message(rule: &PipeRule, source: &crate::SessionState) -> String {
+    let header = format!("[from '{}' @ {}]", source.project, source.modified_at);
     match &rule.trigger {
         PipeTrigger::OnIdle => {
             format!(
-                "Session '{}' is idle. Last output: {}",
-                source.project, source.last_output
+                "{} Session idle. Last output: {}",
+                header, source.last_output
             )
         }
         PipeTrigger::OnFileWrite(pattern) => {
-            // Extract the file path from last_output. The parser stores
-            // "Running: <tool_name>" for tool_use lines and the raw assistant
-            // text for text lines, so last_output is the best proxy we have
-            // until the parser tracks written file paths explicitly.
             format!(
-                "File matching '{}' written by session '{}': {}",
-                pattern, source.project, source.last_output
+                "{} File matching '{}': {}",
+                header, pattern, source.last_output
             )
         }
     }
@@ -403,7 +404,7 @@ mod tests {
             trigger: PipeTrigger::OnFileWrite("*.json".to_string()),
         });
 
-        // Tick 1: first observation — does NOT fire (no prior snapshot to detect change from).
+        // Tick 1: first observation. Does NOT fire (no prior snapshot to detect change from).
         let map = make_map(vec![
             make_session("a", "running", "Running: write_file schema.json"),
             make_session("b", "idle", ""),
@@ -445,8 +446,8 @@ mod tests {
         // Plain assistant text mentioning a filename should not match.
         // (The OnFileWrite branch now guards with starts_with("Running:") before
         // calling matches_glob, so this test documents the token-level behavior.)
-        assert!(matches_glob("*.json", "Running: write_file schema.json")); // tool call — should match
-        assert!(matches_glob("*.json", "schema.json")); // bare token — still matches at glob level
+        assert!(matches_glob("*.json", "Running: write_file schema.json")); // tool call. Should match.
+        assert!(matches_glob("*.json", "schema.json")); // bare token. Still matches at glob level.
         // The Running: guard is in evaluate(), not matches_glob() itself.
         // This test just confirms the token logic is correct.
     }
