@@ -33,7 +33,7 @@ impl OpenCodeProvider {
     fn open_db() -> Option<Connection> {
         let path = Self::db_path()?;
         if !path.exists() {
-            // opencode not installed or never run — quiet path, not an error.
+            // opencode not installed or never run. Quiet path, not an error.
             return None;
         }
         match Connection::open_with_flags(
@@ -126,7 +126,7 @@ impl Provider for OpenCodeProvider {
         for r in rows.flatten() {
             let (id, cwd, title, time_created, time_updated, time_archived) = r;
             let age_secs = (now_ms - time_updated).max(0) / 1000;
-            let status = compute_status(age_secs, time_archived);
+            let status = compute_status(age_secs, time_archived, &conn, &id);
 
             let project = Path::new(&cwd)
                 .file_name()
@@ -177,20 +177,43 @@ impl Provider for OpenCodeProvider {
 
 /// Map opencode session state to humOS status vocabulary.
 ///
-/// `running`  — session updated in the last 10s
-/// `idle`     — older than 10s, not archived
-/// `dead`     — archived (time_archived IS NOT NULL)
+/// `running`: session updated in the last 10s and not waiting for approval
+/// `waiting`: session updated in the last 10s and latest event is step-start
+///            (a tool call was initiated but not yet resolved by the user)
+/// `idle`:    older than 10s, not archived
+/// `dead`:    archived (time_archived IS NOT NULL)
 ///
-/// TODO(v0.6.0): once a real opencode session has been captured with auth, add
-/// `waiting` detection from the `event` table type vocabulary.
-fn compute_status(age_secs: i64, time_archived: Option<i64>) -> String {
+/// Waiting detection works by querying the event table for the most recent
+/// event type for this session. The event stream is:
+///   step-start -> [tool pending in TUI] -> tool -> step-finish
+/// If the most recent committed event is step-start with no step-finish after
+/// it, the session is blocked waiting for the user to approve a tool call.
+fn compute_status(
+    age_secs: i64,
+    time_archived: Option<i64>,
+    conn: &rusqlite::Connection,
+    session_id: &str,
+) -> String {
     if time_archived.is_some() {
         return "dead".to_string();
     }
-    if age_secs < 10 {
-        return "running".to_string();
+    if age_secs >= 10 {
+        return "idle".to_string();
     }
-    "idle".to_string()
+    // Session is recent. Check whether it is waiting for tool approval.
+    // Query the event table for the highest-seq event on this session's aggregate.
+    let latest_event_type: Option<String> = conn
+        .query_row(
+            "SELECT type FROM event WHERE aggregate_id = ?1 ORDER BY seq DESC LIMIT 1",
+            [session_id],
+            |row| row.get(0),
+        )
+        .ok();
+
+    match latest_event_type.as_deref() {
+        Some("step-start") => "waiting".to_string(),
+        _ => "running".to_string(),
+    }
 }
 
 fn ms_to_rfc3339(ms: i64) -> String {
@@ -206,24 +229,75 @@ fn ms_to_rfc3339(ms: i64) -> String {
 mod tests {
     use super::*;
 
+    fn empty_event_db() -> rusqlite::Connection {
+        let conn = rusqlite::Connection::open_in_memory().expect("in-memory db");
+        conn.execute_batch(
+            "CREATE TABLE event (
+                id           TEXT PRIMARY KEY,
+                aggregate_id TEXT NOT NULL,
+                seq          INTEGER NOT NULL,
+                type         TEXT NOT NULL,
+                data         TEXT
+            );",
+        )
+        .expect("create event table");
+        conn
+    }
+
+    fn insert_event(conn: &rusqlite::Connection, aggregate_id: &str, seq: i64, event_type: &str) {
+        conn.execute(
+            "INSERT INTO event (id, aggregate_id, seq, type) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![
+                format!("evt-{}-{}", aggregate_id, seq),
+                aggregate_id,
+                seq,
+                event_type
+            ],
+        )
+        .expect("insert event");
+    }
+
     #[test]
     fn test_compute_status_running() {
-        assert_eq!(compute_status(0, None), "running");
-        assert_eq!(compute_status(5, None), "running");
-        assert_eq!(compute_status(9, None), "running");
+        let conn = empty_event_db();
+        // No events for this session: defaults to running when recent
+        assert_eq!(compute_status(0, None, &conn, "sess-1"), "running");
+        assert_eq!(compute_status(5, None, &conn, "sess-1"), "running");
+        assert_eq!(compute_status(9, None, &conn, "sess-1"), "running");
+    }
+
+    #[test]
+    fn test_compute_status_waiting_when_step_start_is_latest() {
+        let conn = empty_event_db();
+        insert_event(&conn, "sess-w", 1, "step-start");
+        insert_event(&conn, "sess-w", 2, "tool");
+        insert_event(&conn, "sess-w", 3, "step-finish");
+        insert_event(&conn, "sess-w", 4, "step-start"); // new step began, no finish yet
+        assert_eq!(compute_status(5, None, &conn, "sess-w"), "waiting");
+    }
+
+    #[test]
+    fn test_compute_status_running_when_step_finish_is_latest() {
+        let conn = empty_event_db();
+        insert_event(&conn, "sess-r", 1, "step-start");
+        insert_event(&conn, "sess-r", 2, "step-finish");
+        assert_eq!(compute_status(5, None, &conn, "sess-r"), "running");
     }
 
     #[test]
     fn test_compute_status_idle() {
-        assert_eq!(compute_status(10, None), "idle");
-        assert_eq!(compute_status(60, None), "idle");
-        assert_eq!(compute_status(9999, None), "idle");
+        let conn = empty_event_db();
+        // Age gate fires before event table is queried
+        assert_eq!(compute_status(10, None, &conn, "sess-1"), "idle");
+        assert_eq!(compute_status(60, None, &conn, "sess-1"), "idle");
+        assert_eq!(compute_status(9999, None, &conn, "sess-1"), "idle");
     }
 
     #[test]
     fn test_compute_status_dead_when_archived() {
-        assert_eq!(compute_status(0, Some(1700000000000)), "dead");
-        assert_eq!(compute_status(9999, Some(1700000000000)), "dead");
+        let conn = empty_event_db();
+        assert_eq!(compute_status(0, Some(1700000000000), &conn, "sess-1"), "dead");
+        assert_eq!(compute_status(9999, Some(1700000000000), &conn, "sess-1"), "dead");
     }
 
     #[test]
