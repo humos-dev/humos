@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { SessionCard } from "./SessionCard";
 import { BrainRibbon } from "./BrainRibbon";
 import { UpdateBanner } from "./UpdateBanner";
+import { DaemonLoginBanner } from "./DaemonLoginBanner";
 import { useVersionCheck } from "./hooks/useVersionCheck";
 import { useRelatedContexts } from "./hooks/useRelatedContexts";
 import { PipeConfig } from "./PipeConfig";
@@ -773,6 +774,9 @@ export default function App() {
           onDismiss={() => setUpdateBannerDismissed(true)}
         />
       )}
+
+      {/* One-time banner shown after LaunchAgent is installed on first launch */}
+      <DaemonLoginBanner />
 
       {signalOpen && (
         <div

@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.7.0] - TBD
+
+### How to update
+
+```bash
+curl -fsSL https://humos.dev/install.sh | sh
+```
+
+### Added
+- **Daemon bundled inside the app.** `humos-daemon` ships inside `humOS.app/Contents/Resources/`. On first launch, if the daemon socket is not responding, the app auto-spawns it. Project Brain ribbon now works on a fresh ZIP install with no manual setup step.
+- **LaunchAgent auto-install.** On first launch from `/Applications`, humOS writes `dev.humos.daemon.plist` to `~/Library/LaunchAgents/` so the daemon persists after the app closes. Enables Project Brain ribbon context even when humOS is not open. A one-time banner confirms the install.
+- **"Daemon set to start at login" banner.** Appears once after the LaunchAgent is installed, reusing the existing update banner style. Dismissed with "Got it."
+
+### Changed
+- `build-release.sh` always writes a fresh placeholder before building `humos-daemon` to prevent stale placeholders from prior failed builds being bundled. Adds Mach-O validation after build.
+
+### Planned (not yet shipped)
+- opencode `waiting` status (blocked on capturing event types from a real opencode session)
+- Provenance headers on pipe injections
+- Confirm dialog for bulk signal broadcast
+- Cross-vendor demo video
+
+---
+
 ## [0.6.6] - 2026-05-02
 
 ### How to update

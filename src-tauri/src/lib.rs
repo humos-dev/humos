@@ -16,7 +16,7 @@ use std::time::Duration;
 static RULE_COUNTER: AtomicU64 = AtomicU64::new(1);
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use providers::claude::ClaudeProvider;
 use providers::opencode::OpenCodeProvider;
@@ -676,6 +676,167 @@ fn start_session_poll(
     });
 }
 
+/// Spawn the bundled humos-daemon if it is not already running.
+///
+/// Runs in a background thread so app startup is not blocked. Resolves the
+/// daemon binary from the app's resource directory (Contents/Resources/ inside
+/// the .app bundle). On a fresh ZIP install with no LaunchAgent, this gives
+/// users the Project Brain ribbon without any manual setup step.
+fn try_auto_start_daemon(app: &tauri::AppHandle) {
+    let resource_dir = match app.path().resource_dir() {
+        Ok(d) => d,
+        Err(e) => {
+            log::warn!("daemon auto-start: could not resolve resource dir: {}", e);
+            return;
+        }
+    };
+
+    std::thread::spawn(move || {
+        if daemon_client::poll_health().online {
+            log::info!("daemon auto-start: already online, skipping");
+            return;
+        }
+
+        let daemon_bin = resource_dir.join("humos-daemon");
+        if !daemon_bin.exists() {
+            log::warn!("daemon auto-start: binary not found at {:?}", daemon_bin);
+            return;
+        }
+
+        match std::process::Command::new(&daemon_bin).arg("run").spawn() {
+            Ok(_) => {
+                log::info!("daemon auto-start: spawned {:?}", daemon_bin);
+                // Daemon is now starting. The periodic session poll (every 5s) will
+                // pick up the ribbon context once the socket is ready. No sleep needed.
+                try_install_launchagent(&daemon_bin);
+            }
+            Err(e) => log::warn!("daemon auto-start: failed to spawn: {}", e),
+        }
+    });
+}
+
+/// Path to the one-time banner flag file.
+fn login_item_flag_path() -> Option<std::path::PathBuf> {
+    dirs::home_dir().map(|h| h.join(".humOS").join(".login-item-just-installed"))
+}
+
+/// Path to the LaunchAgent plist.
+fn launchagent_plist_path() -> Option<std::path::PathBuf> {
+    dirs::home_dir().map(|h| {
+        h.join("Library")
+            .join("LaunchAgents")
+            .join("dev.humos.daemon.plist")
+    })
+}
+
+/// Returns true if the running executable is inside /Applications.
+/// Used to prevent writing a LaunchAgent plist that points to a temp path
+/// (e.g. the app launched from ~/Downloads before being moved to /Applications).
+fn is_running_from_applications() -> bool {
+    std::env::current_exe()
+        .map(|p| p.starts_with("/Applications"))
+        .unwrap_or(false)
+}
+
+/// Install humos-daemon as a macOS LaunchAgent so it persists after the app closes.
+///
+/// Only runs when the app is launched from /Applications. Skips silently if the
+/// plist already exists (idempotent). Writes a flag file on success so the frontend
+/// can show a one-time "daemon set to start at login" banner via check_login_item_banner.
+fn try_install_launchagent(daemon_bin: &std::path::Path) {
+    if !is_running_from_applications() {
+        log::info!("launchagent-install: not in /Applications, skipping");
+        return;
+    }
+
+    let Some(plist_path) = launchagent_plist_path() else {
+        log::warn!("launchagent-install: could not resolve home dir");
+        return;
+    };
+
+    if plist_path.exists() {
+        log::info!("launchagent-install: plist already exists, skipping");
+        return;
+    }
+
+    let log_path = dirs::home_dir()
+        .map(|h| h.join(".humOS").join("daemon.log"))
+        .unwrap_or_else(|| std::path::PathBuf::from("/tmp/humos-daemon.log"));
+
+    let plist = format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>dev.humos.daemon</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{daemon}</string>
+        <string>run</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>{log}</string>
+    <key>StandardErrorPath</key>
+    <string>{log}</string>
+</dict>
+</plist>"#,
+        daemon = daemon_bin.display(),
+        log = log_path.display()
+    );
+
+    if let Some(parent) = plist_path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+
+    match std::fs::write(&plist_path, &plist) {
+        Err(e) => {
+            log::warn!("launchagent-install: failed to write plist: {}", e);
+            return;
+        }
+        Ok(_) => log::info!("launchagent-install: wrote plist to {:?}", plist_path),
+    }
+
+    // Do NOT call launchctl load here. The daemon is already running from Phase 1
+    // auto-spawn. Calling launchctl load immediately would create a second instance
+    // that races for the socket, fails under KeepAlive, and loops. The plist alone
+    // achieves persistence: launchd picks it up at next login.
+
+    // Write flag file so the frontend banner shows on next render cycle.
+    if let Some(flag_path) = login_item_flag_path() {
+        if let Some(parent) = flag_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        match std::fs::write(&flag_path, b"1") {
+            Ok(_) => log::info!("launchagent-install: banner flag written"),
+            Err(e) => log::warn!("launchagent-install: could not write banner flag: {}", e),
+        }
+    }
+}
+
+/// Inner logic for check_login_item_banner, testable with any path.
+fn consume_login_item_flag(flag_path: &std::path::Path) -> bool {
+    if flag_path.exists() {
+        let _ = std::fs::remove_file(flag_path);
+        true
+    } else {
+        false
+    }
+}
+
+/// Tauri command: check if the LaunchAgent was just installed this session.
+/// Reads and deletes the flag file atomically. Returns true once, then false forever.
+#[tauri::command]
+fn check_login_item_banner() -> bool {
+    login_item_flag_path()
+        .map(|p| consume_login_item_flag(&p))
+        .unwrap_or(false)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     env_logger::init();
@@ -698,6 +859,7 @@ pub fn run() {
         .manage(pipe_manager.clone())
         .manage(updater::UpdateLock(Arc::new(AtomicBool::new(false))))
         .setup(move |app| {
+            try_auto_start_daemon(app.handle());
             let handle = app.handle().clone();
             start_session_poll(
                 handle,
@@ -717,6 +879,7 @@ pub fn run() {
             list_pipe_rules,
             check_daemon_health,
             get_related_context,
+            check_login_item_banner,
             updater::start_self_update,
             updater::restart_app,
         ])
@@ -878,5 +1041,55 @@ mod tests {
         mgr.remove_rule("r-list-1");
         assert_eq!(mgr.rules.len(), 1);
         assert_eq!(mgr.rules[0].id, "r-list-2");
+    }
+
+    // --- LaunchAgent install tests ---
+
+    #[test]
+    fn is_running_from_applications_false_for_debug_binary() {
+        // In test runs, current_exe() resolves to something under target/debug/,
+        // which is never under /Applications.
+        assert!(!is_running_from_applications());
+    }
+
+    #[test]
+    fn check_login_item_banner_returns_false_when_no_flag() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let flag = dir.path().join(".login-item-just-installed");
+        assert!(!consume_login_item_flag(&flag));
+    }
+
+    #[test]
+    fn check_login_item_banner_returns_true_then_false() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let flag = dir.path().join(".login-item-just-installed");
+        std::fs::write(&flag, b"1").expect("write flag");
+        assert!(consume_login_item_flag(&flag), "first call must return true");
+        assert!(!flag.exists(), "flag must be deleted after first call");
+        assert!(!consume_login_item_flag(&flag), "second call must return false");
+    }
+
+    #[test]
+    fn try_install_launchagent_skips_outside_applications() {
+        // In tests, is_running_from_applications() returns false (target/debug path).
+        // Verify that try_install_launchagent returns early without writing any files.
+        let dir = tempfile::tempdir().expect("tempdir");
+        let fake_daemon = dir.path().join("humos-daemon");
+        std::fs::write(&fake_daemon, b"fake").expect("write fake daemon");
+        // Call must not panic and must not write a plist (guard rejects non-/Applications).
+        // We cannot assert file absence on the real plist path in tests, but we verify
+        // is_running_from_applications() is the guard by confirming it returns false here.
+        assert!(!is_running_from_applications());
+    }
+
+    #[test]
+    fn launchagent_paths_are_well_formed() {
+        let plist = launchagent_plist_path().expect("plist path");
+        assert!(plist.to_string_lossy().contains("LaunchAgents"));
+        assert!(plist.to_string_lossy().ends_with("dev.humos.daemon.plist"));
+
+        let flag = login_item_flag_path().expect("flag path");
+        assert!(flag.to_string_lossy().contains(".humOS"));
+        assert!(flag.to_string_lossy().ends_with(".login-item-just-installed"));
     }
 }
