@@ -1,6 +1,6 @@
 [package]
 name = "humos"
-version = "0.7.0"
+version = "0.7.1"
 description = "humOS — AI agent coordination OS for your local machine"
 authors = ["Bolu"]
 edition = "2021"
